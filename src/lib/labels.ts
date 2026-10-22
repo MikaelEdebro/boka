@@ -1,0 +1,20 @@
+import type { DayType } from "@/db/schema";
+
+export const DAY_TYPE_LABELS: Record<DayType, string> = {
+  work: "Arbete",
+  vacation: "Semester",
+  vab: "VAB",
+  sick: "Sjuk",
+  parental: "Föräldraledig",
+  holiday: "Helgdag",
+};
+
+export const WEEKDAY_LABELS = [
+  "Måndag",
+  "Tisdag",
+  "Onsdag",
+  "Torsdag",
+  "Fredag",
+  "Lördag",
+  "Söndag",
+] as const;

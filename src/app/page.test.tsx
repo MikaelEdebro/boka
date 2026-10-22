@@ -1,10 +1,13 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { currentWeek, formatWeek } from "@/lib/week";
 import Home from "./page";
 
+const redirect = vi.hoisted(() => vi.fn());
+vi.mock("next/navigation", () => ({ redirect }));
+
 describe("Home", () => {
-  it("renders the app name", () => {
-    render(<Home />);
-    expect(screen.getByRole("heading", { name: "Boka" })).toBeInTheDocument();
+  it("redirects to the current week", () => {
+    Home();
+    expect(redirect).toHaveBeenCalledWith(`/week/${formatWeek(currentWeek())}`);
   });
 });
