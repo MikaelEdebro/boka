@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, gte, lte } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { dayEntries, type DayType } from "@/db/schema";
 
@@ -25,4 +25,15 @@ export function upsertDayEntry(
 
 export function deleteDayEntry(db: Db, date: string): void {
   db.delete(dayEntries).where(eq(dayEntries.date, date)).run();
+}
+
+export type YearEntry = { date: string; type: DayType; hours: number | null };
+
+export function getYearEntries(db: Db, year: number): YearEntry[] {
+  return db
+    .select({ date: dayEntries.date, type: dayEntries.type, hours: dayEntries.hours })
+    .from(dayEntries)
+    .where(and(gte(dayEntries.date, `${year}-01-01`), lte(dayEntries.date, `${year}-12-31`)))
+    .orderBy(dayEntries.date)
+    .all();
 }

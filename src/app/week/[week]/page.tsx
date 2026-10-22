@@ -60,7 +60,10 @@ export default async function WeekPage({
           ← Föregående
         </Link>
         <h1 className="text-xl font-semibold">
-          Vecka {week.week}, {week.year}
+          Vecka {week.week},{" "}
+          <Link href={`/year/${week.year}`} className="hover:underline">
+            {week.year}
+          </Link>
         </h1>
         <Link
           href={`/week/${formatWeek(nextWeek(week))}`}
