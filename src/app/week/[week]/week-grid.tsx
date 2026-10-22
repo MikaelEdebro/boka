@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { DAY_TYPES, type DayType } from "@/db/schema";
 import { DAY_TYPE_LABELS, WEEKDAY_LABELS } from "@/lib/labels";
@@ -59,6 +59,13 @@ export function WeekGrid({ week, rows, submitted, submittedAt }: WeekGridProps) 
   );
   const [statuses, setStatuses] = useState<Record<string, SaveStatus>>({});
   const [pending, startTransition] = useTransition();
+  const hourInputs = useRef<(HTMLInputElement | null)[]>([]);
+
+  function focusNextHours(index: number, current: HTMLInputElement) {
+    const next = hourInputs.current[index + 1];
+    if (next) next.focus();
+    else current.blur();
+  }
 
   const total = rows.reduce((sum, row) => sum + workHours(states[row.date]), 0);
 
@@ -137,6 +144,7 @@ export function WeekGrid({ week, rows, submitted, submittedAt }: WeekGridProps) 
                     aria-label={`Typ ${row.date}`}
                     value={state.type}
                     disabled={submitted}
+                    tabIndex={-1}
                     onChange={(event) =>
                       update(row.date, { type: event.target.value as DayType })
                     }
@@ -151,11 +159,15 @@ export function WeekGrid({ week, rows, submitted, submittedAt }: WeekGridProps) 
                 </td>
                 <td className="py-2">
                   <input
+                    ref={(node) => {
+                      hourInputs.current[index] = node;
+                    }}
                     aria-label={`Timmar ${row.date}`}
                     type="number"
                     min={0}
                     max={24}
                     step={0.5}
+                    autoFocus={index === 0 && !submitted}
                     value={state.hours}
                     disabled={submitted}
                     onChange={(event) =>
@@ -164,6 +176,12 @@ export function WeekGrid({ week, rows, submitted, submittedAt }: WeekGridProps) 
                         [row.date]: { ...prev[row.date], hours: event.target.value },
                       }))
                     }
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        focusNextHours(index, event.currentTarget);
+                      }
+                    }}
                     onBlur={(event) => update(row.date, { hours: event.target.value })}
                     className="w-20 rounded-md border bg-transparent px-2 py-1 tabular-nums disabled:opacity-50"
                   />
