@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { ComponentProps } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -112,6 +113,42 @@ describe("WeekGrid", () => {
     expect(
       screen.queryByRole("button", { name: "Skicka in vecka" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("moves Tab from one hours input straight to the next, skipping the type dropdown", async () => {
+    const user = userEvent.setup();
+    renderGrid();
+
+    const monday = screen.getByLabelText("Timmar 2026-10-19");
+    const tuesday = screen.getByLabelText("Timmar 2026-10-20");
+    monday.focus();
+
+    await user.tab();
+
+    expect(tuesday).toHaveFocus();
+  });
+
+  it("keeps the type dropdown out of the tab order", () => {
+    renderGrid();
+
+    expect(screen.getByLabelText("Typ 2026-10-19")).toHaveAttribute("tabindex", "-1");
+  });
+
+  it("moves focus to the next hours input when Enter is pressed", async () => {
+    const user = userEvent.setup();
+    renderGrid();
+
+    const monday = screen.getByLabelText("Timmar 2026-10-19");
+    monday.focus();
+    await user.keyboard("{Enter}");
+
+    expect(screen.getByLabelText("Timmar 2026-10-20")).toHaveFocus();
+  });
+
+  it("autofocuses Monday's hours input when the week is not submitted", () => {
+    renderGrid();
+
+    expect(screen.getByLabelText("Timmar 2026-10-19")).toHaveFocus();
   });
 
   it("reopens the week from the reopen button", () => {
