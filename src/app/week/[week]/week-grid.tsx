@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { DAY_TYPES, type DayType } from "@/db/schema";
 import { DAY_TYPE_LABELS, WEEKDAY_LABELS } from "@/lib/labels";
-import { saveDay } from "./actions";
+import { reopenWeek, saveDay, submitWeek } from "./actions";
 
 type RowState = { type: DayType; hours: string; note: string };
 type SaveStatus = "idle" | "saving" | "saved" | "error";
@@ -29,7 +29,14 @@ function workHours(state: RowState): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-export function WeekGrid({ rows }: { rows: WeekGridRow[] }) {
+export type WeekGridProps = {
+  week: string;
+  rows: WeekGridRow[];
+  submitted: boolean;
+  submittedAt: string | null;
+};
+
+export function WeekGrid({ week, rows, submitted, submittedAt }: WeekGridProps) {
   const [states, setStates] = useState<Record<string, RowState>>(() =>
     Object.fromEntries(rows.map((row) => [row.date, toState(row)])),
   );
@@ -57,6 +64,7 @@ export function WeekGrid({ rows }: { rows: WeekGridRow[] }) {
   }
 
   return (
+    <>
     <table className="mt-6 w-full text-sm">
       <thead>
         <tr className="border-b text-left text-muted-foreground">
@@ -79,10 +87,11 @@ export function WeekGrid({ rows }: { rows: WeekGridRow[] }) {
                 <select
                   aria-label={`Typ ${row.date}`}
                   value={state.type}
+                  disabled={submitted}
                   onChange={(event) =>
                     update(row.date, { type: event.target.value as DayType })
                   }
-                  className="rounded-md border bg-transparent px-2 py-1"
+                  className="rounded-md border bg-transparent px-2 py-1 disabled:opacity-50"
                 >
                   {DAY_TYPES.map((type) => (
                     <option key={type} value={type}>
@@ -99,6 +108,7 @@ export function WeekGrid({ rows }: { rows: WeekGridRow[] }) {
                   max={24}
                   step={0.5}
                   value={state.hours}
+                  disabled={submitted}
                   onChange={(event) =>
                     setStates((prev) => ({
                       ...prev,
@@ -106,7 +116,7 @@ export function WeekGrid({ rows }: { rows: WeekGridRow[] }) {
                     }))
                   }
                   onBlur={(event) => update(row.date, { hours: event.target.value })}
-                  className="w-20 rounded-md border bg-transparent px-2 py-1"
+                  className="w-20 rounded-md border bg-transparent px-2 py-1 disabled:opacity-50"
                 />
               </td>
               <td className="py-2 text-xs text-muted-foreground" aria-live="polite">
@@ -130,5 +140,60 @@ export function WeekGrid({ rows }: { rows: WeekGridRow[] }) {
         </tr>
       </tfoot>
     </table>
+    <WeekSubmit week={week} submitted={submitted} submittedAt={submittedAt} />
+    </>
+  );
+}
+
+function formatSubmittedAt(submittedAt: string | null): string {
+  return submittedAt ? submittedAt.slice(0, 10) : "";
+}
+
+function WeekSubmit({
+  week,
+  submitted,
+  submittedAt,
+}: {
+  week: string;
+  submitted: boolean;
+  submittedAt: string | null;
+}) {
+  const [pending, startTransition] = useTransition();
+
+  function run(action: (week: string) => Promise<void>) {
+    startTransition(async () => {
+      await action(week);
+    });
+  }
+
+  if (submitted) {
+    return (
+      <div className="mt-6 flex items-center justify-between">
+        <span className="text-sm text-muted-foreground">
+          Inskickad {formatSubmittedAt(submittedAt)}
+        </span>
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => run(reopenWeek)}
+          className="rounded-md border px-4 py-2 text-sm disabled:opacity-50"
+        >
+          Öppna igen
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-6 flex justify-end">
+      <button
+        type="button"
+        disabled={pending}
+        onClick={() => run(submitWeek)}
+        className="rounded-md bg-foreground px-4 py-2 text-sm text-background disabled:opacity-50"
+      >
+        Skicka in vecka
+      </button>
+    </div>
   );
 }

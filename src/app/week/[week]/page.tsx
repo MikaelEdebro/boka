@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { inArray } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { type DayEntry, dayEntries } from "@/db/schema";
+import { getWeekReport } from "@/db/weekReports";
 import {
   formatDate,
   formatWeek,
@@ -42,6 +43,8 @@ export default async function WeekPage({
     };
   });
 
+  const report = getWeekReport(db, week);
+
   return (
     <main className="mx-auto w-full max-w-3xl p-6">
       <header className="flex items-center justify-between">
@@ -62,7 +65,12 @@ export default async function WeekPage({
         </Link>
       </header>
 
-      <WeekGrid rows={rows} />
+      <WeekGrid
+        week={formatWeek(week)}
+        rows={rows}
+        submitted={report !== undefined}
+        submittedAt={report?.submittedAt ?? null}
+      />
     </main>
   );
 }
