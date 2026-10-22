@@ -1,10 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getDb } from "@/db/client";
+import { getDb, type Db } from "@/db/client";
 import { deleteDayEntry, upsertDayEntry } from "@/db/dayEntries";
 import { isWeekSubmitted, reopenWeekReport, submitWeekReport } from "@/db/weekReports";
-import { parseDay, type DayInput } from "@/lib/dayEntry";
+import { parseDay, type DayInput, type ParsedDay } from "@/lib/dayEntry";
 import {
   formatDate,
   formatWeek,
@@ -15,6 +15,14 @@ import {
 } from "@/lib/week";
 import { weekPresetEntries, type WeekPreset } from "@/lib/weekPresets";
 
+function writeDay(db: Db, parsed: ParsedDay): void {
+  if (parsed.op === "delete") {
+    deleteDayEntry(db, parsed.date);
+  } else {
+    upsertDayEntry(db, parsed);
+  }
+}
+
 export async function saveDay(input: DayInput): Promise<void> {
   const parsed = parseDay(input);
   const db = getDb();
@@ -24,11 +32,7 @@ export async function saveDay(input: DayInput): Promise<void> {
     throw new Error("Veckan är inskickad och låst");
   }
 
-  if (parsed.op === "delete") {
-    deleteDayEntry(db, parsed.date);
-  } else {
-    upsertDayEntry(db, parsed);
-  }
+  writeDay(db, parsed);
 
   revalidatePath(`/week/${formatWeek(week)}`);
 }
@@ -66,12 +70,7 @@ export async function applyWeekPreset(
 
   const writeAll = db.$client.transaction(() => {
     for (const entry of entries) {
-      const parsed = parseDay(entry);
-      if (parsed.op === "delete") {
-        deleteDayEntry(db, parsed.date);
-      } else {
-        upsertDayEntry(db, parsed);
-      }
+      writeDay(db, parseDay(entry));
     }
   });
   writeAll();
