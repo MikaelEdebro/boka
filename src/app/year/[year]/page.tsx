@@ -21,7 +21,7 @@ export default async function YearPage({
   const summary = summarizeYear(year, getYearEntries(getDb(), year));
 
   return (
-    <main className="mx-auto w-full max-w-3xl flex-1 p-8">
+    <>
       <header className="mb-6 flex items-center justify-between">
         <Link
           href={`/year/${year - 1}`}
@@ -75,6 +75,6 @@ export default async function YearPage({
           </tr>
         </tfoot>
       </table>
-    </main>
+    </>
   );
 }

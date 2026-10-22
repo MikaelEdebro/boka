@@ -1,0 +1,67 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { currentWeek, formatWeek } from "@/lib/week";
+
+type NavLink = { href: string; label: string; isActive: (pathname: string) => boolean };
+
+function navLinks(): NavLink[] {
+  const week = currentWeek();
+  return [
+    {
+      href: `/week/${formatWeek(week)}`,
+      label: "Vecka",
+      isActive: (p) => p.startsWith("/week"),
+    },
+    {
+      href: `/year/${week.year}`,
+      label: "År",
+      isActive: (p) => p.startsWith("/year"),
+    },
+    {
+      href: "/invoices",
+      label: "Fakturor",
+      isActive: (p) => p.startsWith("/invoices"),
+    },
+    {
+      href: "/settings",
+      label: "Inställningar",
+      isActive: (p) => p.startsWith("/settings"),
+    },
+  ];
+}
+
+export function Nav() {
+  const pathname = usePathname();
+
+  return (
+    <header className="border-b border-border">
+      <nav className="mx-auto flex w-full max-w-3xl items-center gap-4 overflow-x-auto px-6 py-3">
+        <Link href="/" className="shrink-0 text-lg font-semibold">
+          Boka
+        </Link>
+        <ul className="flex items-center gap-1">
+          {navLinks().map((link) => {
+            const active = link.isActive(pathname);
+            return (
+              <li key={link.href}>
+                <Link
+                  href={link.href}
+                  aria-current={active ? "page" : undefined}
+                  className={
+                    active
+                      ? "rounded-md px-3 py-1.5 text-sm font-medium text-foreground"
+                      : "rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground"
+                  }
+                >
+                  {link.label}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
+    </header>
+  );
+}

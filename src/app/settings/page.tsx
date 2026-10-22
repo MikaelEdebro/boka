@@ -11,7 +11,7 @@ export default function SettingsPage() {
   const secrets = getSecretsStatus();
 
   return (
-    <main className="mx-auto w-full max-w-lg flex-1 p-8">
+    <>
       <h1 className="mb-6 text-2xl font-semibold">Inställningar</h1>
 
       <form action={saveSettings} className="space-y-5">
@@ -57,7 +57,7 @@ export default function SettingsPage() {
           <SecretRow label="BOKIO_COMPANY_ID" configured={secrets.bokioCompanyId} />
         </ul>
       </section>
-    </main>
+    </>
   );
 }
 

@@ -45,7 +45,7 @@ export default function InvoicesPage() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-3xl flex-1 p-8">
+    <>
       <h1 className="mb-6 text-2xl font-semibold">Fakturor</h1>
 
       <section>
@@ -109,6 +109,6 @@ export default function InvoicesPage() {
           Inställningar
         </Link>
       </p>
-    </main>
+    </>
   );
 }

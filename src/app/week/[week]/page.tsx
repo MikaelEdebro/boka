@@ -51,7 +51,7 @@ export default async function WeekPage({
   const report = getWeekReport(db, week);
 
   return (
-    <main className="mx-auto w-full max-w-3xl p-6">
+    <>
       <header className="flex items-center justify-between">
         <Link
           href={`/week/${formatWeek(prevWeek(week))}`}
@@ -79,6 +79,6 @@ export default async function WeekPage({
         submitted={report !== undefined}
         submittedAt={report?.submittedAt ?? null}
       />
-    </main>
+    </>
   );
 }
