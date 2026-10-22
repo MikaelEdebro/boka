@@ -1,6 +1,8 @@
 "use client";
 
+import { Loader2 } from "lucide-react";
 import { useRef, useState, useTransition } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { DAY_TYPES, type DayType } from "@/db/schema";
 import { DAY_TYPE_LABELS, WEEKDAY_LABELS } from "@/lib/labels";
@@ -14,7 +16,7 @@ import {
 import { applyWeekPreset, reopenWeek, saveDay, submitWeek } from "./actions";
 
 type RowState = { type: DayType; hours: string; note: string };
-type SaveStatus = "idle" | "saving" | "saved" | "error";
+type SaveStatus = "idle" | "saving";
 
 export type WeekGridRow = {
   date: string;
@@ -82,7 +84,11 @@ export function WeekGrid({ week, rows, submitted, submittedAt }: WeekGridProps) 
     });
     setStatuses({});
     startTransition(async () => {
-      await applyWeekPreset(week, preset);
+      try {
+        await applyWeekPreset(week, preset);
+      } catch {
+        toast.error("Kunde inte spara veckan");
+      }
     });
   }
 
@@ -91,9 +97,10 @@ export function WeekGrid({ week, rows, submitted, submittedAt }: WeekGridProps) 
     startTransition(async () => {
       try {
         await saveDay({ date, type: next.type, hours: next.hours, note: next.note });
-        setStatuses((prev) => ({ ...prev, [date]: "saved" }));
       } catch {
-        setStatuses((prev) => ({ ...prev, [date]: "error" }));
+        toast.error("Kunde inte spara dagen");
+      } finally {
+        setStatuses((prev) => ({ ...prev, [date]: "idle" }));
       }
     });
   }
@@ -187,11 +194,9 @@ export function WeekGrid({ week, rows, submitted, submittedAt }: WeekGridProps) 
                     className="w-20 rounded-md border bg-transparent px-2 py-1 tabular-nums disabled:opacity-50"
                   />
                 </td>
-                <td className="py-2 text-xs text-muted-foreground" aria-live="polite">
-                  {status === "saving" && "Sparar…"}
-                  {status === "saved" && "Sparat"}
-                  {status === "error" && (
-                    <span className="text-destructive">Fel</span>
+                <td className="py-2 text-muted-foreground" aria-live="polite">
+                  {status === "saving" && (
+                    <Loader2 className="size-4 animate-spin" aria-label="Sparar" />
                   )}
                 </td>
               </tr>
@@ -228,9 +233,14 @@ function WeekSubmit({
 }) {
   const [pending, startTransition] = useTransition();
 
-  function run(action: (week: string) => Promise<void>) {
+  function run(action: (week: string) => Promise<void>, successMessage: string) {
     startTransition(async () => {
-      await action(week);
+      try {
+        await action(week);
+        toast.success(successMessage);
+      } catch {
+        toast.error("Något gick fel");
+      }
     });
   }
 
@@ -240,28 +250,25 @@ function WeekSubmit({
         <span className="text-sm text-muted-foreground">
           Inskickad {formatSubmittedAt(submittedAt)}
         </span>
-        <button
+        <Button
           type="button"
+          variant="outline"
           disabled={pending}
-          onClick={() => run(reopenWeek)}
-          className="rounded-md border px-4 py-2 text-sm disabled:opacity-50"
+          onClick={() => run(reopenWeek, "Vecka öppnad")}
         >
+          {pending && <Loader2 className="animate-spin" aria-hidden />}
           Öppna igen
-        </button>
+        </Button>
       </div>
     );
   }
 
   return (
     <div className="mt-6 flex justify-end">
-      <button
-        type="button"
-        disabled={pending}
-        onClick={() => run(submitWeek)}
-        className="rounded-md bg-foreground px-4 py-2 text-sm text-background disabled:opacity-50"
-      >
+      <Button type="button" disabled={pending} onClick={() => run(submitWeek, "Vecka inskickad")}>
+        {pending && <Loader2 className="animate-spin" aria-hidden />}
         Skicka in vecka
-      </button>
+      </Button>
     </div>
   );
 }

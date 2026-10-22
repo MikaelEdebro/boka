@@ -12,10 +12,21 @@ import {
   monthKey,
   parseYearMonth,
 } from "@/lib/invoicing";
+import type { ActionResult } from "@/lib/actionResult";
 import { getSecretsStatus } from "@/lib/settings";
 import { formatWeek } from "@/lib/week";
 
-export async function createInvoiceForMonth(yearMonth: string): Promise<void> {
+export async function createInvoiceForMonth(yearMonth: string): Promise<ActionResult> {
+  try {
+    await createInvoiceOrThrow(yearMonth);
+    revalidatePath("/invoices");
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Kunde inte skapa faktura." };
+  }
+}
+
+async function createInvoiceOrThrow(yearMonth: string): Promise<void> {
   if (!parseYearMonth(yearMonth)) throw new Error(`Ogiltig månad: ${yearMonth}`);
 
   const db = getDb();
@@ -71,6 +82,4 @@ export async function createInvoiceForMonth(yearMonth: string): Promise<void> {
     periodEnd: aggregation.periodEnd,
     hours: aggregation.hours,
   });
-
-  revalidatePath("/invoices");
 }

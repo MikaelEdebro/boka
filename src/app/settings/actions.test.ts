@@ -21,8 +21,9 @@ describe("saveSettings", () => {
     form.set("bokioCustomerId", " cust-7 ");
     form.set("invoiceItemName", "");
 
-    await saveSettings(form);
+    const result = await saveSettings(null, form);
 
+    expect(result).toEqual({ ok: true });
     expect(upsertSettings).toHaveBeenCalledWith(fakeDb, {
       hourlyRate: 950,
       bokioCustomerId: "cust-7",
@@ -30,13 +31,15 @@ describe("saveSettings", () => {
     });
   });
 
-  it("rejects an invalid hourly rate", async () => {
+  it("returns an error result for an invalid hourly rate without upserting", async () => {
     const form = new FormData();
     form.set("hourlyRate", "-1");
     form.set("bokioCustomerId", "");
     form.set("invoiceItemName", "x");
 
-    await expect(saveSettings(form)).rejects.toThrow();
+    const result = await saveSettings(null, form);
+
+    expect(result.ok).toBe(false);
     expect(upsertSettings).not.toHaveBeenCalled();
   });
 });

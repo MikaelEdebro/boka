@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist_Mono, Inter } from "next/font/google";
+import { Toaster } from "sonner";
 import { Nav } from "@/components/nav";
 import "./globals.css";
 
@@ -17,6 +18,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-full flex flex-col font-sans">
         <Nav />
         <main className="mx-auto w-full max-w-3xl flex-1 p-6">{children}</main>
+        <Toaster position="bottom-right" />
       </body>
     </html>
   );
