@@ -1,27 +1,22 @@
 # Coding Standards
 
-<!-- Customize this file with your project's coding standards.
-     The reviewer agent loads it during code review via @.sandcastle/CODING_STANDARDS.md
-     so these standards are enforced during review without costing tokens during implementation. -->
+See `CLAUDE.md` for the stack and domain glossary.
 
 ## Style
 
-<!-- Example:
-- Use camelCase for variables and functions
-- Use PascalCase for classes and types
-- Prefer named exports over default exports
--->
+- TypeScript strict, no `any`. Named exports, PascalCase components, camelCase everything else.
+- Self-documenting code; comments only for non-obvious "why".
+- Swedish labels in the UI, English identifiers in code.
 
 ## Testing
 
-<!-- Example:
-- Every public function must have at least one test
-- Use descriptive test names that explain the expected behavior
--->
+- Every domain function in `src/lib/` and every server action has a Vitest test colocated with it.
+- DB tests use `testDb()` (in-memory SQLite), never the file DB.
+- External HTTP (Bokio) is mocked via `vi.stubGlobal("fetch", ...)`; no network in tests.
+- `npm run typecheck` and `npm run test` must pass before commit.
 
 ## Architecture
 
-<!-- Example:
-- Keep modules focused on a single responsibility
-- Prefer composition over inheritance
--->
+- Schema changes go through `src/db/schema.ts` + `npm run db:generate`; commit the generated migration.
+- Pages are server components; mutations are server actions validated with Zod.
+- Keep DB queries in `src/db/`, pure domain logic in `src/lib/`, UI in `src/components/`.
