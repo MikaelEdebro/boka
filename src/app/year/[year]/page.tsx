@@ -2,10 +2,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getDb } from "@/db/client";
 import { getYearEntries } from "@/db/dayEntries";
-import { MONTH_LABELS } from "@/lib/labels";
+import { DAY_TYPE_LABELS, MONTH_LABELS } from "@/lib/labels";
 import { summarizeYear } from "@/lib/summary";
 
 const YEAR_RE = /^\d{4}$/;
+
+const DAY_TYPE_COLUMNS = ["vacation", "vab", "sick", "parental", "holiday"] as const;
 
 export default async function YearPage({
   params,
@@ -17,14 +19,6 @@ export default async function YearPage({
   const year = Number(yearParam);
 
   const summary = summarizeYear(year, getYearEntries(getDb(), year));
-
-  const columns = [
-    { key: "vacation", label: "Semester" },
-    { key: "vab", label: "VAB" },
-    { key: "sick", label: "Sjuk" },
-    { key: "parental", label: "Föräldraledig" },
-    { key: "holiday", label: "Helgdag" },
-  ] as const;
 
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 p-8">
@@ -49,9 +43,9 @@ export default async function YearPage({
           <tr className="border-b border-border text-left text-muted-foreground">
             <th className="py-2 pr-4 font-medium">Månad</th>
             <th className="py-2 pr-4 text-right font-medium">Arbetstimmar</th>
-            {columns.map((column) => (
-              <th key={column.key} className="py-2 pr-4 text-right font-medium">
-                {column.label}
+            {DAY_TYPE_COLUMNS.map((key) => (
+              <th key={key} className="py-2 pr-4 text-right font-medium">
+                {DAY_TYPE_LABELS[key]}
               </th>
             ))}
           </tr>
@@ -61,9 +55,9 @@ export default async function YearPage({
             <tr key={month.month} className="border-b border-border">
               <td className="py-2 pr-4">{MONTH_LABELS[month.month - 1]}</td>
               <td className="py-2 pr-4 text-right tabular-nums">{month.workHours}</td>
-              {columns.map((column) => (
-                <td key={column.key} className="py-2 pr-4 text-right tabular-nums">
-                  {month[column.key]}
+              {DAY_TYPE_COLUMNS.map((key) => (
+                <td key={key} className="py-2 pr-4 text-right tabular-nums">
+                  {month[key]}
                 </td>
               ))}
             </tr>
@@ -73,9 +67,9 @@ export default async function YearPage({
           <tr className="border-t-2 border-border font-medium">
             <td className="py-2 pr-4">Totalt</td>
             <td className="py-2 pr-4 text-right tabular-nums">{summary.totals.workHours}</td>
-            {columns.map((column) => (
-              <td key={column.key} className="py-2 pr-4 text-right tabular-nums">
-                {summary.totals[column.key]}
+            {DAY_TYPE_COLUMNS.map((key) => (
+              <td key={key} className="py-2 pr-4 text-right tabular-nums">
+                {summary.totals[key]}
               </td>
             ))}
           </tr>
