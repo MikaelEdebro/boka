@@ -65,82 +65,82 @@ export function WeekGrid({ week, rows, submitted, submittedAt }: WeekGridProps) 
 
   return (
     <>
-    <table className="mt-6 w-full text-sm">
-      <thead>
-        <tr className="border-b text-left text-muted-foreground">
-          <th className="py-2 font-medium">Dag</th>
-          <th className="py-2 font-medium">Datum</th>
-          <th className="py-2 font-medium">Typ</th>
-          <th className="py-2 font-medium">Timmar</th>
-          <th className="py-2 font-medium"></th>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((row, index) => {
-          const state = states[row.date];
-          const status = statuses[row.date] ?? "idle";
-          return (
-            <tr key={row.date} className="border-b">
-              <td className="py-2">{WEEKDAY_LABELS[index]}</td>
-              <td className="py-2">{row.date}</td>
-              <td className="py-2">
-                <select
-                  aria-label={`Typ ${row.date}`}
-                  value={state.type}
-                  disabled={submitted}
-                  onChange={(event) =>
-                    update(row.date, { type: event.target.value as DayType })
-                  }
-                  className="rounded-md border bg-transparent px-2 py-1 disabled:opacity-50"
-                >
-                  {DAY_TYPES.map((type) => (
-                    <option key={type} value={type}>
-                      {DAY_TYPE_LABELS[type]}
-                    </option>
-                  ))}
-                </select>
-              </td>
-              <td className="py-2">
-                <input
-                  aria-label={`Timmar ${row.date}`}
-                  type="number"
-                  min={0}
-                  max={24}
-                  step={0.5}
-                  value={state.hours}
-                  disabled={submitted}
-                  onChange={(event) =>
-                    setStates((prev) => ({
-                      ...prev,
-                      [row.date]: { ...prev[row.date], hours: event.target.value },
-                    }))
-                  }
-                  onBlur={(event) => update(row.date, { hours: event.target.value })}
-                  className="w-20 rounded-md border bg-transparent px-2 py-1 disabled:opacity-50"
-                />
-              </td>
-              <td className="py-2 text-xs text-muted-foreground" aria-live="polite">
-                {status === "saving" && "Sparar…"}
-                {status === "saved" && "Sparat"}
-                {status === "error" && (
-                  <span className="text-destructive">Fel</span>
-                )}
-              </td>
-            </tr>
-          );
-        })}
-      </tbody>
-      <tfoot>
-        <tr className="font-medium">
-          <td className="py-2" colSpan={3}>
-            Summa arbetstimmar
-          </td>
-          <td className="py-2">{total}</td>
-          <td className="py-2"></td>
-        </tr>
-      </tfoot>
-    </table>
-    <WeekSubmit week={week} submitted={submitted} submittedAt={submittedAt} />
+      <table className="mt-6 w-full text-sm">
+        <thead>
+          <tr className="border-b text-left text-muted-foreground">
+            <th className="py-2 font-medium">Dag</th>
+            <th className="py-2 font-medium">Datum</th>
+            <th className="py-2 font-medium">Typ</th>
+            <th className="py-2 font-medium">Timmar</th>
+            <th className="py-2 font-medium"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, index) => {
+            const state = states[row.date];
+            const status = statuses[row.date] ?? "idle";
+            return (
+              <tr key={row.date} className="border-b">
+                <td className="py-2">{WEEKDAY_LABELS[index]}</td>
+                <td className="py-2">{row.date}</td>
+                <td className="py-2">
+                  <select
+                    aria-label={`Typ ${row.date}`}
+                    value={state.type}
+                    disabled={submitted}
+                    onChange={(event) =>
+                      update(row.date, { type: event.target.value as DayType })
+                    }
+                    className="rounded-md border bg-transparent px-2 py-1 disabled:opacity-50"
+                  >
+                    {DAY_TYPES.map((type) => (
+                      <option key={type} value={type}>
+                        {DAY_TYPE_LABELS[type]}
+                      </option>
+                    ))}
+                  </select>
+                </td>
+                <td className="py-2">
+                  <input
+                    aria-label={`Timmar ${row.date}`}
+                    type="number"
+                    min={0}
+                    max={24}
+                    step={0.5}
+                    value={state.hours}
+                    disabled={submitted}
+                    onChange={(event) =>
+                      setStates((prev) => ({
+                        ...prev,
+                        [row.date]: { ...prev[row.date], hours: event.target.value },
+                      }))
+                    }
+                    onBlur={(event) => update(row.date, { hours: event.target.value })}
+                    className="w-20 rounded-md border bg-transparent px-2 py-1 disabled:opacity-50"
+                  />
+                </td>
+                <td className="py-2 text-xs text-muted-foreground" aria-live="polite">
+                  {status === "saving" && "Sparar…"}
+                  {status === "saved" && "Sparat"}
+                  {status === "error" && (
+                    <span className="text-destructive">Fel</span>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+        <tfoot>
+          <tr className="font-medium">
+            <td className="py-2" colSpan={3}>
+              Summa arbetstimmar
+            </td>
+            <td className="py-2">{total}</td>
+            <td className="py-2"></td>
+          </tr>
+        </tfoot>
+      </table>
+      <WeekSubmit week={week} submitted={submitted} submittedAt={submittedAt} />
     </>
   );
 }
