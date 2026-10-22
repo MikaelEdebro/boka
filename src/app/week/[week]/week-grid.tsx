@@ -116,7 +116,7 @@ export function WeekGrid({ week, rows, submitted, submittedAt }: WeekGridProps) 
                       }))
                     }
                     onBlur={(event) => update(row.date, { hours: event.target.value })}
-                    className="w-20 rounded-md border bg-transparent px-2 py-1 disabled:opacity-50"
+                    className="w-20 rounded-md border bg-transparent px-2 py-1 tabular-nums disabled:opacity-50"
                   />
                 </td>
                 <td className="py-2 text-xs text-muted-foreground" aria-live="polite">
@@ -135,7 +135,7 @@ export function WeekGrid({ week, rows, submitted, submittedAt }: WeekGridProps) 
             <td className="py-2" colSpan={3}>
               Summa arbetstimmar
             </td>
-            <td className="py-2">{total}</td>
+            <td className="py-2 tabular-nums">{total}</td>
             <td className="py-2"></td>
           </tr>
         </tfoot>

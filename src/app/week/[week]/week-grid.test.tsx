@@ -37,6 +37,11 @@ describe("WeekGrid", () => {
     expect(screen.getByText("8")).toBeInTheDocument();
   });
 
+  it("renders the total with tabular numerals", () => {
+    renderGrid();
+    expect(screen.getByText("8")).toHaveClass("tabular-nums");
+  });
+
   it("saves and shows an indicator when the type changes", async () => {
     renderGrid();
 
