@@ -49,11 +49,9 @@ export function Nav() {
                 <Link
                   href={link.href}
                   aria-current={active ? "page" : undefined}
-                  className={
-                    active
-                      ? "rounded-md px-3 py-1.5 text-sm font-medium text-foreground"
-                      : "rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground"
-                  }
+                  className={`rounded-md px-3 py-1.5 text-sm ${
+                    active ? "font-medium text-foreground" : "text-muted-foreground hover:text-foreground"
+                  }`}
                 >
                   {link.label}
                 </Link>
