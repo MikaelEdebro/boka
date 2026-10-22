@@ -4,6 +4,7 @@ import {
   format,
   getISOWeek,
   getISOWeekYear,
+  parseISO,
   startOfISOWeek,
 } from "date-fns";
 
@@ -63,4 +64,9 @@ export function nextWeek(week: Week): Week {
 export function currentWeek(): Week {
   const now = new Date();
   return { year: getISOWeekYear(now), week: getISOWeek(now) };
+}
+
+export function weekForDate(date: string): Week {
+  const parsed = parseISO(date);
+  return { year: getISOWeekYear(parsed), week: getISOWeek(parsed) };
 }
