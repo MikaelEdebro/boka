@@ -22,8 +22,7 @@ export default async function WeekPage({
   const week = parseWeek(weekParam);
   if (!week) notFound();
 
-  const days = weekDays(week);
-  const dates = days.map(formatDate);
+  const dates = weekDays(week).map(formatDate);
 
   const db = getDb();
   const rows = db
@@ -67,8 +66,7 @@ export default async function WeekPage({
           </tr>
         </thead>
         <tbody>
-          {days.map((day, index) => {
-            const date = dates[index];
+          {dates.map((date, index) => {
             const entry = entries.get(date);
             return (
               <tr key={date} className="border-b">
