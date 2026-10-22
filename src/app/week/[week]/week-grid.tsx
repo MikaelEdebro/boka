@@ -63,6 +63,7 @@ export function WeekGrid({ week, rows, submitted, submittedAt }: WeekGridProps) 
 
   function focusNextHours(index: number, current: HTMLInputElement) {
     const next = hourInputs.current[index + 1];
+    // On the last input, blur to commit the value through the onBlur handler.
     if (next) next.focus();
     else current.blur();
   }
