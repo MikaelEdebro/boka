@@ -5,10 +5,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const saveDay = vi.fn((..._args: unknown[]) => Promise.resolve());
 const submitWeek = vi.fn((..._args: unknown[]) => Promise.resolve());
 const reopenWeek = vi.fn((..._args: unknown[]) => Promise.resolve());
+const applyWeekPreset = vi.fn((..._args: unknown[]) => Promise.resolve());
 vi.mock("./actions", () => ({
   saveDay: (...args: unknown[]) => saveDay(...args),
   submitWeek: (...args: unknown[]) => submitWeek(...args),
   reopenWeek: (...args: unknown[]) => reopenWeek(...args),
+  applyWeekPreset: (...args: unknown[]) => applyWeekPreset(...args),
 }));
 
 import { WeekGrid, type WeekGridRow } from "./week-grid";
@@ -29,6 +31,25 @@ describe("WeekGrid", () => {
     saveDay.mockClear();
     submitWeek.mockClear();
     reopenWeek.mockClear();
+    applyWeekPreset.mockClear();
+  });
+
+  it("fills the whole week with work hours from the preset pill", () => {
+    renderGrid();
+
+    fireEvent.click(screen.getByRole("button", { name: "Jobbat hela veckan" }));
+
+    expect(applyWeekPreset).toHaveBeenCalledWith("2026-W43", "work");
+    // Both rows now show work 8h, so the total reflects it immediately.
+    expect(screen.getByText("16")).toBeInTheDocument();
+  });
+
+  it("hides the preset pills when the week is submitted", () => {
+    renderGrid({ submitted: true, submittedAt: "2026-10-25T18:00:00.000Z" });
+
+    expect(
+      screen.queryByRole("button", { name: "Jobbat hela veckan" }),
+    ).not.toBeInTheDocument();
   });
 
   it("sums work hours across the rows", () => {

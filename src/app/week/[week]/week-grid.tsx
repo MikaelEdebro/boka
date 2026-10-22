@@ -1,9 +1,17 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { Button } from "@/components/ui/button";
 import { DAY_TYPES, type DayType } from "@/db/schema";
 import { DAY_TYPE_LABELS, WEEKDAY_LABELS } from "@/lib/labels";
-import { reopenWeek, saveDay, submitWeek } from "./actions";
+import type { DayInput } from "@/lib/dayEntry";
+import {
+  WEEK_PRESETS,
+  WEEK_PRESET_LABELS,
+  weekPresetEntries,
+  type WeekPreset,
+} from "@/lib/weekPresets";
+import { applyWeekPreset, reopenWeek, saveDay, submitWeek } from "./actions";
 
 type RowState = { type: DayType; hours: string; note: string };
 type SaveStatus = "idle" | "saving" | "saved" | "error";
@@ -29,6 +37,15 @@ function workHours(state: RowState): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function inputToState(input: DayInput): RowState {
+  const { hours } = input;
+  return {
+    type: input.type,
+    hours: hours === "" || hours == null ? "" : String(hours),
+    note: "",
+  };
+}
+
 export type WeekGridProps = {
   week: string;
   rows: WeekGridRow[];
@@ -41,9 +58,25 @@ export function WeekGrid({ week, rows, submitted, submittedAt }: WeekGridProps) 
     Object.fromEntries(rows.map((row) => [row.date, toState(row)])),
   );
   const [statuses, setStatuses] = useState<Record<string, SaveStatus>>({});
-  const [, startTransition] = useTransition();
+  const [pending, startTransition] = useTransition();
 
   const total = rows.reduce((sum, row) => sum + workHours(states[row.date]), 0);
+
+  function applyPreset(preset: WeekPreset) {
+    const entries = weekPresetEntries(
+      rows.map((row) => row.date),
+      preset,
+    );
+    setStates((prev) => {
+      const next = { ...prev };
+      for (const entry of entries) next[entry.date] = inputToState(entry);
+      return next;
+    });
+    setStatuses({});
+    startTransition(async () => {
+      await applyWeekPreset(week, preset);
+    });
+  }
 
   function persist(date: string, next: RowState) {
     setStatuses((prev) => ({ ...prev, [date]: "saving" }));
@@ -65,6 +98,22 @@ export function WeekGrid({ week, rows, submitted, submittedAt }: WeekGridProps) 
 
   return (
     <>
+      {!submitted && (
+        <div className="mt-6 flex flex-wrap gap-2">
+          {WEEK_PRESETS.map((preset) => (
+            <Button
+              key={preset}
+              type="button"
+              size="sm"
+              variant={preset === "clear" ? "ghost" : "outline"}
+              disabled={pending}
+              onClick={() => applyPreset(preset)}
+            >
+              {WEEK_PRESET_LABELS[preset]}
+            </Button>
+          ))}
+        </div>
+      )}
       <table className="mt-6 w-full text-sm">
         <thead>
           <tr className="border-b text-left text-muted-foreground">
