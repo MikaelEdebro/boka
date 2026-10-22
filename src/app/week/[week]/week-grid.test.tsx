@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const saveDay = vi.fn(() => Promise.resolve());
+const saveDay = vi.fn((..._args: unknown[]) => Promise.resolve());
 vi.mock("./actions", () => ({ saveDay: (...args: unknown[]) => saveDay(...args) }));
 
 import { WeekGrid, type WeekGridRow } from "./week-grid";

@@ -3,8 +3,11 @@ import { DAY_TYPES, type DayType } from "@/db/schema";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+const emptyToNull = (value: unknown) =>
+  value === "" || value === undefined || value === null ? null : value;
+
 const hoursField = z.preprocess(
-  (value) => (value === "" || value === undefined || value === null ? null : value),
+  emptyToNull,
   z.coerce
     .number()
     .min(0, "Timmar måste vara mellan 0 och 24")
@@ -13,10 +16,7 @@ const hoursField = z.preprocess(
     .nullable(),
 );
 
-const noteField = z.preprocess(
-  (value) => (value === "" || value === undefined || value === null ? null : value),
-  z.string().trim().nullable(),
-);
+const noteField = z.preprocess(emptyToNull, z.string().trim().nullable());
 
 export const dayInputSchema = z.object({
   date: z.string().regex(DATE_RE, "Ogiltigt datum"),
