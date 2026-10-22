@@ -19,7 +19,7 @@ describe("parseSettings", () => {
   it("defaults the invoice item name when blank", () => {
     expect(
       parseSettings({ hourlyRate: "1", bokioCustomerId: "c", invoiceItemName: "  " }),
-    ).toEqual({ hourlyRate: 1, bokioCustomerId: "c", invoiceItemName: "Konsulttjänster" });
+    ).toEqual({ hourlyRate: 1, bokioCustomerId: "c", invoiceItemName: "Programmering" });
   });
 
   it("rejects a negative hourly rate", () => {

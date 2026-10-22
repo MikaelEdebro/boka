@@ -25,6 +25,14 @@ export function monthKey(date: string): string {
   return date.slice(0, 7);
 }
 
+export function invoiceLineDescription(
+  itemName: string,
+  periodStart: string,
+  periodEnd: string,
+): string {
+  return `${itemName} (${periodStart} - ${periodEnd})`;
+}
+
 export type MonthPeriod = { periodStart: string; periodEnd: string };
 
 export function monthPeriod(yearMonth: string): MonthPeriod {

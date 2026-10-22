@@ -4,7 +4,12 @@ import { getDb } from "@/db/client";
 import { getWorkDays, listInvoices } from "@/db/invoices";
 import { getSettings } from "@/db/settings";
 import { listWeekReports } from "@/db/weekReports";
-import { monthKey, uninvoicedMonths, type MonthAggregation } from "@/lib/invoicing";
+import {
+  invoiceLineDescription,
+  monthKey,
+  uninvoicedMonths,
+  type MonthAggregation,
+} from "@/lib/invoicing";
 import { getSecretsStatus } from "@/lib/settings";
 import { formatWeek } from "@/lib/week";
 import { createInvoiceForMonth } from "./actions";
@@ -66,6 +71,13 @@ export default function InvoicesPage() {
                     <p className="text-sm text-muted-foreground">
                       {month.hours} h
                       {month.amount != null ? ` · ${currency.format(month.amount)}` : ""}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {invoiceLineDescription(
+                        settings.invoiceItemName,
+                        month.periodStart,
+                        month.periodEnd,
+                      )}
                     </p>
                     {reason && <p className="mt-1 text-sm text-destructive">{reason}</p>}
                   </div>

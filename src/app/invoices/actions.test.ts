@@ -53,7 +53,9 @@ describe("createInvoiceForMonth", () => {
     expect(createInvoice).toHaveBeenCalledWith({
       customerId: "cust-1",
       invoiceDate: "2026-10-31",
-      lines: [{ description: "Konsult", quantity: 14, unitPrice: 1200 }],
+      lines: [
+        { description: "Konsult (2026-10-01 - 2026-10-31)", quantity: 14, unitPrice: 1200 },
+      ],
     });
 
     const rows = db.select().from(invoices).all();

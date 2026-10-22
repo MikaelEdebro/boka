@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   aggregateMonth,
   formatYearMonth,
+  invoiceLineDescription,
   monthKey,
   monthPeriod,
   parseYearMonth,
@@ -39,6 +40,14 @@ describe("monthPeriod", () => {
       periodStart: "2026-02-01",
       periodEnd: "2026-02-28",
     });
+  });
+});
+
+describe("invoiceLineDescription", () => {
+  it("appends the invoiced period to the item name", () => {
+    expect(invoiceLineDescription("Programmering", "2026-09-01", "2026-09-30")).toBe(
+      "Programmering (2026-09-01 - 2026-09-30)",
+    );
   });
 });
 

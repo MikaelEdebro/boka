@@ -6,7 +6,12 @@ import { getDb } from "@/db/client";
 import { getWorkDays, insertInvoice, listInvoices } from "@/db/invoices";
 import { getSettings } from "@/db/settings";
 import { listWeekReports } from "@/db/weekReports";
-import { aggregateMonth, monthKey, parseYearMonth } from "@/lib/invoicing";
+import {
+  aggregateMonth,
+  invoiceLineDescription,
+  monthKey,
+  parseYearMonth,
+} from "@/lib/invoicing";
 import { getSecretsStatus } from "@/lib/settings";
 import { formatWeek } from "@/lib/week";
 
@@ -49,7 +54,11 @@ export async function createInvoiceForMonth(yearMonth: string): Promise<void> {
     invoiceDate: aggregation.periodEnd,
     lines: [
       {
-        description: settings.invoiceItemName,
+        description: invoiceLineDescription(
+          settings.invoiceItemName,
+          aggregation.periodStart,
+          aggregation.periodEnd,
+        ),
         quantity: aggregation.hours,
         unitPrice: settings.hourlyRate,
       },

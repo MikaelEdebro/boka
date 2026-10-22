@@ -26,7 +26,7 @@ describe("saveSettings", () => {
     expect(upsertSettings).toHaveBeenCalledWith(fakeDb, {
       hourlyRate: 950,
       bokioCustomerId: "cust-7",
-      invoiceItemName: "Konsulttjänster",
+      invoiceItemName: "Programmering",
     });
   });
 

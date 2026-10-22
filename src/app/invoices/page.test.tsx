@@ -47,6 +47,7 @@ describe("InvoicesPage", () => {
 
     expect(screen.getByText("2026-10")).toBeInTheDocument();
     expect(screen.getByText(/14 h/)).toBeInTheDocument();
+    expect(screen.getByText("Konsult (2026-10-01 - 2026-10-31)")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Skapa faktura" })).toBeEnabled();
   });
 

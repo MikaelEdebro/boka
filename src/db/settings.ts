@@ -4,7 +4,7 @@ import { settings } from "@/db/schema";
 
 const SETTINGS_ID = 1;
 
-export const DEFAULT_INVOICE_ITEM_NAME = "Konsulttjänster";
+export const DEFAULT_INVOICE_ITEM_NAME = "Programmering";
 
 export type AppSettings = {
   hourlyRate: number | null;

@@ -9,7 +9,7 @@ describe("settings db", () => {
     expect(getSettings(db)).toEqual({
       hourlyRate: null,
       bokioCustomerId: "",
-      invoiceItemName: "Konsulttjänster",
+      invoiceItemName: "Programmering",
     });
   });
 
