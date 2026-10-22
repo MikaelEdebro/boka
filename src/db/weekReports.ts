@@ -15,6 +15,10 @@ export function isWeekSubmitted(db: Db, week: Week): boolean {
   return getWeekReport(db, week) !== undefined;
 }
 
+export function listWeekReports(db: Db): WeekReport[] {
+  return db.select().from(weekReports).all();
+}
+
 export function submitWeekReport(
   db: Db,
   week: Week,
