@@ -61,4 +61,35 @@ describe("WeekPage", () => {
     await expect(renderWeek("not-a-week")).rejects.toThrow("NEXT_NOT_FOUND");
     expect(notFound).toHaveBeenCalled();
   });
+
+  it("pre-fills a weekday red day as holiday with 0 hours", async () => {
+    render(await renderWeek("2026-W01"));
+
+    expect(screen.getByLabelText("Typ 2026-01-01")).toHaveValue("holiday");
+    expect(screen.getByLabelText("Timmar 2026-01-01")).toHaveValue(0);
+    // A normal weekday in the same week is left as an empty work day.
+    expect(screen.getByLabelText("Typ 2026-01-02")).toHaveValue("work");
+    expect(screen.getByLabelText("Timmar 2026-01-02")).toHaveValue(null);
+  });
+
+  it("leaves a red day that falls on a weekend empty", async () => {
+    render(await renderWeek("2026-W23"));
+
+    expect(screen.getByLabelText("Typ 2026-06-06")).toHaveValue("work");
+    expect(screen.getByLabelText("Timmar 2026-06-06")).toHaveValue(null);
+  });
+
+  it("keeps a saved entry on a red day instead of the pre-fill", async () => {
+    const db = getDb();
+    db.insert(dayEntries)
+      .values([
+        { date: "2026-01-01", type: "work", hours: 8, updatedAt: "2026-01-01T08:00:00Z" },
+      ])
+      .run();
+
+    render(await renderWeek("2026-W01"));
+
+    expect(screen.getByLabelText("Typ 2026-01-01")).toHaveValue("work");
+    expect(screen.getByLabelText("Timmar 2026-01-01")).toHaveValue(8);
+  });
 });

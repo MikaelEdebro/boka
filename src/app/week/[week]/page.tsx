@@ -4,6 +4,7 @@ import { inArray } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { type DayEntry, dayEntries } from "@/db/schema";
 import { getWeekReport } from "@/db/weekReports";
+import { isSwedishHoliday } from "@/lib/holidays";
 import {
   formatDate,
   formatWeek,
@@ -33,14 +34,18 @@ export default async function WeekPage({
     .all();
   const entries = new Map<string, DayEntry>(dbRows.map((row) => [row.date, row]));
 
-  const rows: WeekGridRow[] = dates.map((date) => {
+  const rows: WeekGridRow[] = dates.map((date, index) => {
     const entry = entries.get(date);
-    return {
-      date,
-      type: entry?.type ?? "work",
-      hours: entry?.hours ?? null,
-      note: entry?.note ?? null,
-    };
+    if (entry) {
+      return { date, type: entry.type, hours: entry.hours, note: entry.note };
+    }
+    // Pre-fill weekday red days as holiday with 0 hours. Not persisted until
+    // the user saves; weekends stay empty.
+    const isWeekday = index < 5;
+    if (isWeekday && isSwedishHoliday(date)) {
+      return { date, type: "holiday", hours: 0, note: null };
+    }
+    return { date, type: "work", hours: null, note: null };
   });
 
   const report = getWeekReport(db, week);
