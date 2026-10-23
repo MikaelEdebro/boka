@@ -142,13 +142,22 @@ export function WeekGrid({ week, rows, submitted, submittedAt, vabNotes }: WeekG
           <option key={note} value={note} />
         ))}
       </datalist>
-      <table className="mt-6 w-full text-sm">
+      <table className="mt-6 w-full table-fixed text-sm">
+        <colgroup>
+          <col className="w-24" />
+          <col className="w-28" />
+          <col className="w-40" />
+          <col className="w-24" />
+          <col className="w-40" />
+          <col className="w-20" />
+        </colgroup>
         <thead>
           <tr className="border-b text-left text-muted-foreground">
             <th className="py-2 font-medium">Dag</th>
             <th className="py-2 font-medium">Datum</th>
             <th className="py-2 font-medium">Typ</th>
             <th className="py-2 font-medium">Timmar</th>
+            <th className="py-2 font-medium">Barn</th>
             <th className="py-2 font-medium"></th>
           </tr>
         </thead>
@@ -201,6 +210,8 @@ export function WeekGrid({ week, rows, submitted, submittedAt, vabNotes }: WeekG
                     onBlur={(event) => update(row.date, { hours: event.target.value })}
                     className="w-20 rounded-md border bg-transparent px-2 py-1 tabular-nums disabled:opacity-50"
                   />
+                </td>
+                <td className="py-2">
                   {state.type === "vab" && (
                     <input
                       aria-label={`Barn ${row.date}`}
@@ -211,11 +222,14 @@ export function WeekGrid({ week, rows, submitted, submittedAt, vabNotes }: WeekG
                       disabled={submitted}
                       onChange={(event) => editField(row.date, { note: event.target.value })}
                       onBlur={(event) => update(row.date, { note: event.target.value })}
-                      className="ml-2 w-32 rounded-md border bg-transparent px-2 py-1 disabled:opacity-50"
+                      className="w-32 rounded-md border bg-transparent px-2 py-1 disabled:opacity-50"
                     />
                   )}
                 </td>
-                <td className="py-2 text-muted-foreground" aria-live="polite">
+                <td
+                  className="py-2 whitespace-nowrap text-muted-foreground"
+                  aria-live="polite"
+                >
                   {status === "saving" && (
                     <Loader2 className="size-4 animate-spin" aria-label="Sparar" />
                   )}
@@ -230,7 +244,7 @@ export function WeekGrid({ week, rows, submitted, submittedAt, vabNotes }: WeekG
               Summa arbetstimmar
             </td>
             <td className="py-2 tabular-nums">{total}</td>
-            <td className="py-2"></td>
+            <td className="py-2" colSpan={2}></td>
           </tr>
         </tfoot>
       </table>

@@ -143,6 +143,23 @@ describe("WeekGrid", () => {
     expect(screen.getByText("12")).toBeInTheDocument();
   });
 
+  it("uses a fixed table layout with a column reserved for the note", () => {
+    const { container } = renderGrid();
+
+    const table = container.querySelector("table");
+    expect(table).toHaveClass("table-fixed");
+
+    // Six columns: Dag, Datum, Typ, Timmar, Barn, Status.
+    expect(container.querySelectorAll("colgroup col")).toHaveLength(6);
+    expect(container.querySelectorAll("thead th")).toHaveLength(6);
+
+    // Every body row keeps all six cells, even when it is not a VAB row,
+    // so the columns never shift when the note input appears or disappears.
+    for (const bodyRow of container.querySelectorAll("tbody tr")) {
+      expect(bodyRow.querySelectorAll("td")).toHaveLength(6);
+    }
+  });
+
   it("shows a note input only for VAB rows and saves the note on blur", () => {
     renderGrid();
 
