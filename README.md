@@ -65,3 +65,5 @@ Conventions for contributors and agents are in `CLAUDE.md`.
 ## Sandcastle
 
 Issues labelled `Sandcastle` are picked up by `npm run sandcastle`. It needs `.sandcastle/.env` with `CLAUDE_CODE_OAUTH_TOKEN` (from `claude setup-token`) and a `GH_TOKEN` with Issues read/write on this repo, plus the Docker image from `npx sandcastle docker build-image`. The merge step commits to local `main` but does not push.
+
+To keep it running, `npm run sandcastle:loop` polls every 5 minutes and starts a run whenever open `Sandcastle` issues exist (`SANDCASTLE_POLL_SECONDS` to change the interval). It wraps the loop in `caffeinate` so the Mac stays awake.
