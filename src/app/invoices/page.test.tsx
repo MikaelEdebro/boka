@@ -5,6 +5,7 @@ import { clients, dayEntries, invoices, weekReports } from "@/db/schema";
 import { upsertClient } from "@/db/clients";
 import { insertInvoice, updateInvoiceStatus } from "@/db/invoices";
 import { submitWeekReport } from "@/db/weekReports";
+import type { BokioInvoiceList } from "./bokio-invoices";
 import InvoicesPage from "./page";
 
 vi.mock("next/server", () => ({ connection: vi.fn(async () => {}) }));
@@ -12,13 +13,18 @@ vi.mock("next/server", () => ({ connection: vi.fn(async () => {}) }));
 const refreshInvoiceStatuses = vi.fn(async () => ({ ok: true }) as const);
 vi.mock("./actions", () => ({
   createInvoiceForMonth: vi.fn(),
+  linkInvoice: vi.fn(),
   refreshInvoiceStatuses: () => refreshInvoiceStatuses(),
 }));
+
+const loadBokioInvoiceList = vi.fn<() => Promise<BokioInvoiceList>>();
+vi.mock("./bokio-invoices", () => ({ loadBokioInvoiceList: () => loadBokioInvoiceList() }));
 
 beforeEach(() => {
   const db = getDb();
   for (const table of [dayEntries, weekReports, invoices, clients]) db.delete(table).run();
   refreshInvoiceStatuses.mockClear();
+  loadBokioInvoiceList.mockReset().mockResolvedValue({ ok: true, invoices: [] });
 });
 
 afterEach(() => vi.unstubAllEnvs());
@@ -180,5 +186,113 @@ describe("InvoicesPage", () => {
     render(await InvoicesPage());
 
     expect(refreshInvoiceStatuses).not.toHaveBeenCalled();
+  });
+
+  describe("linking to an existing Bokio invoice", () => {
+    function seedAugust(clientId: number, hours = [8, 6]) {
+      const db = getDb();
+      db.insert(dayEntries)
+        .values(
+          hours.map((h, i) => ({
+            date: `2026-08-${String(3 + i).padStart(2, "0")}`,
+            type: "work" as const,
+            hours: h,
+            clientId,
+            updatedAt: "t",
+          })),
+        )
+        .run();
+      submitWeekReport(db, { year: 2026, week: 32 }, "2026-08-09T18:00:00.000Z");
+    }
+
+    function handMadeInvoice(quantity: number, description = "Konsult (2026-08-01 - 2026-08-31)") {
+      return {
+        id: "inv-45",
+        invoiceNumber: "45",
+        status: "paid",
+        invoiceDate: "2026-09-04",
+        customerId: "cust-1",
+        lineItems: [{ description, quantity, unitType: "hour", unitPrice: 1200 }],
+      };
+    }
+
+    it("offers to link a matching Bokio invoice with equal hours", async () => {
+      seedAugust(seedConfig());
+      loadBokioInvoiceList.mockResolvedValue({ ok: true, invoices: [handMadeInvoice(14)] });
+
+      render(await InvoicesPage());
+
+      expect(screen.getByRole("button", { name: "Koppla till Bokio-faktura #45" })).toBeEnabled();
+      expect(screen.getByText("Betald")).toBeInTheDocument();
+      const hours = screen.getByText("14 h i Bokio · 14 h i Boka");
+      expect(hours.closest("p")?.className).toMatch(/green/);
+      expect(screen.getByRole("button", { name: "Skapa faktura" })).toBeInTheDocument();
+    });
+
+    it("warns when Bokio hours differ from Boka hours", async () => {
+      seedAugust(seedConfig());
+      loadBokioInvoiceList.mockResolvedValue({ ok: true, invoices: [handMadeInvoice(16)] });
+
+      render(await InvoicesPage());
+
+      const hours = screen.getByText("16 h i Bokio · 14 h i Boka");
+      expect(hours.closest("p")?.className).toMatch(/amber/);
+    });
+
+    it("warns about a weak date-only match", async () => {
+      seedAugust(seedConfig());
+      loadBokioInvoiceList.mockResolvedValue({
+        ok: true,
+        invoices: [handMadeInvoice(14, "Konsult")],
+      });
+
+      render(await InvoicesPage());
+
+      expect(screen.getByText("Datum matchar men fakturaraden saknar period")).toBeInTheDocument();
+    });
+
+    it("does not suggest an invoice that is already linked", async () => {
+      const clientId = seedConfig();
+      seedAugust(clientId);
+      insertInvoice(getDb(), {
+        bokioInvoiceId: "inv-45",
+        periodStart: "2026-07-01",
+        periodEnd: "2026-07-31",
+        hours: 1,
+        clientId,
+      });
+      loadBokioInvoiceList.mockResolvedValue({ ok: true, invoices: [handMadeInvoice(14)] });
+
+      render(await InvoicesPage());
+
+      expect(screen.queryByRole("button", { name: /Koppla till/ })).not.toBeInTheDocument();
+    });
+
+    it("degrades to a muted note when Bokio invoices cannot be loaded", async () => {
+      seedAugust(seedConfig());
+      loadBokioInvoiceList.mockResolvedValue({ ok: false, error: "Bokio svarade 500" });
+
+      render(await InvoicesPage());
+
+      expect(screen.getByText(/Kunde inte hämta fakturor från Bokio/)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Skapa faktura" })).toBeEnabled();
+    });
+
+    it("marks linked invoices in the invoice list", async () => {
+      const clientId = seedConfig();
+      insertInvoice(getDb(), {
+        bokioInvoiceId: "inv-45",
+        periodStart: "2026-08-01",
+        periodEnd: "2026-08-31",
+        hours: 14,
+        clientId,
+        linked: true,
+        statusCheckedAt: new Date().toISOString(),
+      });
+
+      render(await InvoicesPage());
+
+      expect(screen.getByText("Kopplad")).toBeInTheDocument();
+    });
   });
 });

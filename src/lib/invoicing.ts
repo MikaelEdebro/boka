@@ -77,6 +77,15 @@ export function refreshStatusMessage(removed: number): string {
   return `${removed} fakturor borttagna i Bokio togs bort`;
 }
 
+export function linkedInvoiceMessage(invoiceNumber: string | null): string {
+  return invoiceNumber ? `Kopplad till faktura #${invoiceNumber}` : "Kopplad till Bokio-faktura";
+}
+
+export function hoursMismatchConfirmation(bokioHours: number, appHours: number): string {
+  const difference = Math.abs(bokioHours - appHours);
+  return `Bokio-fakturan har ${bokioHours} h men Boka har ${appHours} h (${difference} h skillnad). Koppla ändå?`;
+}
+
 type WorkEntry = AggregationEntry & { hours: number; clientId: number };
 
 function isWorkHours(entry: AggregationEntry): entry is WorkEntry {

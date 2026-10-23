@@ -48,6 +48,7 @@ export const invoices = sqliteTable("invoices", {
   bokioStatus: text("bokio_status"),
   bokioInvoiceNumber: text("bokio_invoice_number"),
   statusCheckedAt: text("status_checked_at"),
+  linked: integer("linked", { mode: "boolean" }).notNull().default(false),
   createdAt: text("created_at").notNull(),
 });
 

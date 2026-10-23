@@ -1,11 +1,12 @@
 import { format, parseISO } from "date-fns";
+import { AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import { connection } from "next/server";
 import { StatusBadge } from "@/components/status-badge";
 import { getDb } from "@/db/client";
 import { listClients } from "@/db/clients";
 import { getWorkDays, listInvoices } from "@/db/invoices";
-import type { Invoice } from "@/db/schema";
+import type { Client, Invoice } from "@/db/schema";
 import { listWeekReports } from "@/db/weekReports";
 import {
   invoicedKey,
@@ -15,10 +16,18 @@ import {
   uninvoicedMonths,
   type MonthAggregation,
 } from "@/lib/invoicing";
+import {
+  compareHours,
+  findBokioInvoiceForPeriod,
+  WEAK_MATCH_WARNING,
+} from "@/lib/invoiceMatching";
 import { getSecretsStatus } from "@/lib/settings";
+import { cn } from "@/lib/utils";
 import { formatWeek } from "@/lib/week";
 import { CreateInvoiceButton } from "./create-invoice-button";
 import { refreshInvoiceStatuses } from "./actions";
+import { type BokioInvoiceList, loadBokioInvoiceList } from "./bokio-invoices";
+import { LinkInvoiceButton } from "./link-invoice-button";
 import { RefreshStatusButton } from "./refresh-status-button";
 
 const currency = new Intl.NumberFormat("sv-SE", {
@@ -35,6 +44,62 @@ function statusesAreStale(invoices: Invoice[], now: number): boolean {
     (invoice) =>
       invoice.statusCheckedAt === null ||
       now - new Date(invoice.statusCheckedAt).getTime() > ONE_HOUR_MS,
+  );
+}
+
+function BokioInvoiceSuggestion({
+  month,
+  client,
+  bokioInvoices,
+  linkedBokioInvoiceIds,
+  disabled,
+}: {
+  month: MonthAggregation;
+  client: Client;
+  bokioInvoices: BokioInvoiceList;
+  linkedBokioInvoiceIds: ReadonlySet<string>;
+  disabled: boolean;
+}) {
+  if (!bokioInvoices.ok) return null;
+  const match = findBokioInvoiceForPeriod(bokioInvoices.invoices, {
+    clientBokioCustomerId: client.bokioCustomerId,
+    periodStart: month.periodStart,
+    periodEnd: month.periodEnd,
+    linkedBokioInvoiceIds,
+  });
+  if (!match) return null;
+
+  const hours = compareHours(match.invoice, month.hours);
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <div className="flex items-center gap-2">
+        <StatusBadge status={match.invoice.status} />
+        <LinkInvoiceButton
+          yearMonth={month.yearMonth}
+          clientId={month.clientId}
+          bokioInvoiceId={match.invoice.id}
+          invoiceNumber={match.invoice.invoiceNumber}
+          hours={hours}
+          disabled={disabled}
+        />
+      </div>
+      <p
+        className={cn(
+          "flex items-center gap-1 text-xs",
+          hours.hoursMatch
+            ? "text-green-700 dark:text-green-400"
+            : "text-amber-700 dark:text-amber-400",
+        )}
+      >
+        {!hours.hoursMatch && <AlertTriangle className="size-3" aria-hidden />}
+        <span>
+          {hours.bokioHours} h i Bokio · {hours.appHours} h i Boka
+        </span>
+      </p>
+      {match.strength === "weak" && (
+        <p className="text-xs text-amber-700 dark:text-amber-400">{WEAK_MATCH_WARNING}</p>
+      )}
+    </div>
   );
 }
 
@@ -59,6 +124,11 @@ export default async function InvoicesPage() {
   );
   const invoices = listInvoices(db);
   const months = uninvoicedMonths(getWorkDays(db), submittedWeeks, clients, invoicedKeys(invoices));
+  const linkedBokioInvoiceIds = new Set(invoices.map((invoice) => invoice.bokioInvoiceId));
+  const bokioInvoices: BokioInvoiceList =
+    envReady && months.length > 0
+      ? await loadBokioInvoiceList()
+      : { ok: true, invoices: [] };
 
   function blockedReason(month: MonthAggregation): string | null {
     if (!envReady) return "Bokio-nycklar saknas i .env.";
@@ -74,6 +144,11 @@ export default async function InvoicesPage() {
 
       <section>
         <h2 className="mb-3 text-sm font-medium text-muted-foreground">Att fakturera</h2>
+        {!bokioInvoices.ok && (
+          <p className="mb-3 text-xs text-muted-foreground">
+            Kunde inte hämta fakturor från Bokio, inga kopplingsförslag visas.
+          </p>
+        )}
         {clients.length === 0 ? (
           <p className="text-sm text-muted-foreground">Lägg till en kund under Kunder.</p>
         ) : months.length === 0 ? (
@@ -106,11 +181,22 @@ export default async function InvoicesPage() {
                     )}
                     {reason && <p className="mt-1 text-sm text-destructive">{reason}</p>}
                   </div>
-                  <CreateInvoiceButton
-                    yearMonth={month.yearMonth}
-                    clientId={month.clientId}
-                    disabled={reason !== null}
-                  />
+                  <div className="flex flex-col items-end gap-2">
+                    <CreateInvoiceButton
+                      yearMonth={month.yearMonth}
+                      clientId={month.clientId}
+                      disabled={reason !== null}
+                    />
+                    {client && (
+                      <BokioInvoiceSuggestion
+                        month={month}
+                        client={client}
+                        bokioInvoices={bokioInvoices}
+                        linkedBokioInvoiceIds={linkedBokioInvoiceIds}
+                        disabled={reason !== null}
+                      />
+                    )}
+                  </div>
                 </li>
               );
             })}
@@ -120,7 +206,7 @@ export default async function InvoicesPage() {
 
       <section className="mt-8 border-t border-border pt-6">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-medium text-muted-foreground">Skapade fakturor</h2>
+          <h2 className="text-sm font-medium text-muted-foreground">Fakturor i Bokio</h2>
           {invoices.length > 0 && envReady && <RefreshStatusButton />}
         </div>
         {invoices.length === 0 ? (
@@ -143,7 +229,12 @@ export default async function InvoicesPage() {
                   )}
                 </div>
                 <div className="flex flex-col items-end gap-1">
-                  <StatusBadge status={invoice.bokioStatus} />
+                  <div className="flex items-center gap-2">
+                    {invoice.linked && (
+                      <span className="text-xs text-muted-foreground">Kopplad</span>
+                    )}
+                    <StatusBadge status={invoice.bokioStatus} />
+                  </div>
                   {invoice.bokioInvoiceNumber && (
                     <span className="text-sm text-muted-foreground">
                       Fakturanr {invoice.bokioInvoiceNumber}

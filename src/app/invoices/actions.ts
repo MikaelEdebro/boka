@@ -74,7 +74,7 @@ export async function refreshInvoiceStatuses(): Promise<RefreshInvoiceStatusesRe
   }
 }
 
-async function createInvoiceOrThrow(yearMonth: string, clientId: number): Promise<void> {
+function invoiceableMonthOrThrow(yearMonth: string, clientId: number) {
   if (!parseYearMonth(yearMonth)) throw new Error(`Ogiltig månad: ${yearMonth}`);
 
   const db = getDb();
@@ -111,6 +111,12 @@ async function createInvoiceOrThrow(yearMonth: string, clientId: number): Promis
     throw new Error(`Alla veckor är inte inskickade: ${aggregation.unsubmittedWeeks.join(", ")}`);
   }
 
+  return { db, client, aggregation };
+}
+
+async function createInvoiceOrThrow(yearMonth: string, clientId: number): Promise<void> {
+  const { db, client, aggregation } = invoiceableMonthOrThrow(yearMonth, clientId);
+
   const bokioInvoiceId = await createInvoice({
     customerId: client.bokioCustomerId,
     invoiceDate: aggregation.periodEnd,
@@ -134,4 +140,54 @@ async function createInvoiceOrThrow(yearMonth: string, clientId: number): Promis
     hours: aggregation.hours,
     clientId,
   });
+}
+
+export type LinkInvoiceResult = ActionResult<{ invoiceNumber: string | null }>;
+
+export async function linkInvoice(
+  yearMonth: string,
+  clientId: number,
+  bokioInvoiceId: string,
+): Promise<LinkInvoiceResult> {
+  try {
+    const invoiceNumber = await linkInvoiceOrThrow(yearMonth, clientId, bokioInvoiceId);
+    revalidatePath("/invoices");
+    return { ok: true, invoiceNumber };
+  } catch (error) {
+    console.error("linkInvoice failed:", error);
+    return { ok: false, error: error instanceof Error ? error.message : "Kunde inte koppla faktura." };
+  }
+}
+
+async function linkInvoiceOrThrow(
+  yearMonth: string,
+  clientId: number,
+  bokioInvoiceId: string,
+): Promise<string | null> {
+  const { db, client, aggregation } = invoiceableMonthOrThrow(yearMonth, clientId);
+
+  if (listInvoices(db).some((row) => row.bokioInvoiceId === bokioInvoiceId)) {
+    throw new Error("Bokio-fakturan är redan kopplad.");
+  }
+
+  const bokioInvoice = await getInvoice(bokioInvoiceId);
+  if (!bokioInvoice) {
+    throw new Error("Fakturan finns inte i Bokio.");
+  }
+  if (bokioInvoice.customerId !== client.bokioCustomerId) {
+    throw new Error("Bokio-fakturan tillhör en annan kund.");
+  }
+
+  insertInvoice(db, {
+    bokioInvoiceId,
+    periodStart: aggregation.periodStart,
+    periodEnd: aggregation.periodEnd,
+    hours: aggregation.hours,
+    clientId,
+    bokioStatus: bokioInvoice.status,
+    bokioInvoiceNumber: bokioInvoice.invoiceNumber,
+    statusCheckedAt: new Date().toISOString(),
+    linked: true,
+  });
+  return bokioInvoice.invoiceNumber;
 }

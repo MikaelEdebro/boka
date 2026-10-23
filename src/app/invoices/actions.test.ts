@@ -22,7 +22,7 @@ vi.mock("@/bokio/client", () => ({
   getInvoice: (...args: unknown[]) => getInvoice(...args),
 }));
 
-import { createInvoiceForMonth, refreshInvoiceStatuses } from "./actions";
+import { createInvoiceForMonth, linkInvoice, refreshInvoiceStatuses } from "./actions";
 
 function addClient(values: Partial<Omit<Client, "id" | "isDefault" | "createdAt">> = {}): Client {
   return upsertClient(db, {
@@ -291,6 +291,121 @@ describe("refreshInvoiceStatuses", () => {
     const result = await refreshInvoiceStatuses();
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toMatch(/\.env/);
+    expect(getInvoice).not.toHaveBeenCalled();
+  });
+});
+
+describe("linkInvoice", () => {
+  beforeEach(() => {
+    db = testDb();
+    revalidatePath.mockReset();
+    createInvoice.mockReset();
+    getInvoice.mockReset().mockResolvedValue({
+      status: "paid",
+      invoiceNumber: "45",
+      customerId: "cust-1",
+      totalAmount: null,
+      paidAmount: null,
+      dueDate: null,
+      publishedDateTime: null,
+    });
+    vi.unstubAllEnvs();
+  });
+
+  it("links the month to the Bokio invoice with app hours and Bokio status", async () => {
+    configure();
+    seedSubmittedWorkWeek();
+
+    const result = await linkInvoice("2026-10", defaultClientId, "inv-45");
+
+    expect(result).toEqual({ ok: true, invoiceNumber: "45" });
+    expect(getInvoice).toHaveBeenCalledWith("inv-45");
+    expect(createInvoice).not.toHaveBeenCalled();
+    const rows = db.select().from(invoices).all();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      bokioInvoiceId: "inv-45",
+      periodStart: "2026-10-01",
+      periodEnd: "2026-10-31",
+      hours: 14,
+      clientId: defaultClientId,
+      bokioStatus: "paid",
+      bokioInvoiceNumber: "45",
+      linked: true,
+    });
+    expect(rows[0].statusCheckedAt).toBeTypeOf("string");
+    expect(revalidatePath).toHaveBeenCalledWith("/invoices");
+  });
+
+  it("refuses a Bokio invoice that is already linked", async () => {
+    configure();
+    seedSubmittedWorkWeek();
+    insertInvoice(db, {
+      bokioInvoiceId: "inv-45",
+      periodStart: "2026-09-01",
+      periodEnd: "2026-09-30",
+      hours: 100,
+      clientId: defaultClientId,
+    });
+
+    const result = await linkInvoice("2026-10", defaultClientId, "inv-45");
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toMatch(/redan kopplad/i);
+    expect(db.select().from(invoices).all()).toHaveLength(1);
+  });
+
+  it("refuses a month that is already invoiced for the client", async () => {
+    configure();
+    seedSubmittedWorkWeek();
+    insertInvoice(db, {
+      bokioInvoiceId: "inv-1",
+      periodStart: "2026-10-01",
+      periodEnd: "2026-10-31",
+      hours: 14,
+      clientId: defaultClientId,
+    });
+
+    const result = await linkInvoice("2026-10", defaultClientId, "inv-45");
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toMatch(/redan fakturerad/i);
+  });
+
+  it("refuses when the Bokio invoice belongs to another customer", async () => {
+    configure();
+    seedSubmittedWorkWeek();
+    getInvoice.mockResolvedValue({ status: "paid", invoiceNumber: "45", customerId: "cust-2" });
+
+    const result = await linkInvoice("2026-10", defaultClientId, "inv-45");
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toMatch(/annan kund/i);
+    expect(db.select().from(invoices).all()).toHaveLength(0);
+  });
+
+  it("refuses when the Bokio invoice no longer exists", async () => {
+    configure();
+    seedSubmittedWorkWeek();
+    getInvoice.mockResolvedValue(null);
+
+    const result = await linkInvoice("2026-10", defaultClientId, "inv-45");
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toMatch(/finns inte/i);
+    expect(db.select().from(invoices).all()).toHaveLength(0);
+  });
+
+  it("refuses when the month has unsubmitted weeks", async () => {
+    configure();
+    db.insert(dayEntries)
+      .values({ date: "2026-10-19", type: "work", hours: 8, clientId: defaultClientId, updatedAt: "t" })
+      .run();
+
+    const result = await linkInvoice("2026-10", defaultClientId, "inv-45");
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toMatch(/inskickad/i);
     expect(getInvoice).not.toHaveBeenCalled();
   });
 });

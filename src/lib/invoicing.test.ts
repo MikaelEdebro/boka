@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   aggregateMonth,
   formatYearMonth,
+  hoursMismatchConfirmation,
   invoicedKey,
   invoicedKeys,
   invoiceLineDescription,
+  linkedInvoiceMessage,
   monthKey,
   monthPeriod,
   parseYearMonth,
@@ -171,5 +173,23 @@ describe("refreshStatusMessage", () => {
 
   it("falls back to the plain status message when nothing was removed", () => {
     expect(refreshStatusMessage(0)).toBe("Status uppdaterad från Bokio");
+  });
+});
+
+describe("linkedInvoiceMessage", () => {
+  it("names the Bokio invoice number", () => {
+    expect(linkedInvoiceMessage("45")).toBe("Kopplad till faktura #45");
+  });
+
+  it("falls back when Bokio has no number yet", () => {
+    expect(linkedInvoiceMessage(null)).toBe("Kopplad till Bokio-faktura");
+  });
+});
+
+describe("hoursMismatchConfirmation", () => {
+  it("states both hour totals and the difference", () => {
+    expect(hoursMismatchConfirmation(112, 104)).toBe(
+      "Bokio-fakturan har 112 h men Boka har 104 h (8 h skillnad). Koppla ändå?",
+    );
   });
 });

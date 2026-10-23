@@ -8,6 +8,10 @@ export type NewInvoice = {
   periodEnd: string;
   hours: number;
   clientId: number;
+  bokioStatus?: string | null;
+  bokioInvoiceNumber?: string | null;
+  statusCheckedAt?: string | null;
+  linked?: boolean;
 };
 
 export function listInvoices(db: Db): Invoice[] {

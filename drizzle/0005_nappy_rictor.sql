@@ -1,0 +1,1 @@
+ALTER TABLE `invoices` ADD `linked` integer DEFAULT false NOT NULL;

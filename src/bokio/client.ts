@@ -144,10 +144,19 @@ const invoiceResponseSchema = z.object({
 
 // status stays a raw string so an unexpected Bokio value never throws here;
 // the badge mapping turns anything unknown into "Okänd".
+const invoiceNumberSchema = z
+  .union([z.string(), z.number()])
+  .nullable()
+  .optional()
+  .transform((value) => (value == null ? null : String(value)));
+
+const customerRefSchema = z.object({ id: z.string() }).nullable().optional();
+
 const invoiceStatusSchema = z
   .object({
     status: z.string(),
-    invoiceNumber: z.string().nullable().optional(),
+    invoiceNumber: invoiceNumberSchema,
+    customerRef: customerRefSchema,
     totalAmount: z.number().nullable().optional(),
     paidAmount: z.number().nullable().optional(),
     dueDate: z.string().nullable().optional(),
@@ -155,7 +164,8 @@ const invoiceStatusSchema = z
   })
   .transform((data) => ({
     status: data.status,
-    invoiceNumber: data.invoiceNumber ?? null,
+    invoiceNumber: data.invoiceNumber,
+    customerId: data.customerRef?.id ?? null,
     totalAmount: data.totalAmount ?? null,
     paidAmount: data.paidAmount ?? null,
     dueDate: data.dueDate ?? null,
@@ -172,6 +182,61 @@ export async function getInvoice(id: string): Promise<BokioInvoiceStatus | null>
     if (error instanceof BokioError && error.status === 404) return null;
     throw error;
   }
+}
+
+const invoiceLineItemSchema = z
+  .object({
+    description: z.string().nullable().optional(),
+    quantity: z.number().nullable().optional(),
+    unitType: z.string().nullable().optional(),
+    unitPrice: z.number().nullable().optional(),
+  })
+  .transform((line) => ({
+    description: line.description ?? "",
+    quantity: line.quantity ?? 0,
+    unitType: line.unitType ?? "",
+    unitPrice: line.unitPrice ?? 0,
+  }));
+
+const invoiceSummarySchema = z
+  .object({
+    id: z.string(),
+    invoiceNumber: invoiceNumberSchema,
+    status: z.string(),
+    invoiceDate: z.string().nullable().optional(),
+    customerRef: customerRefSchema,
+    lineItems: z.array(invoiceLineItemSchema).nullable().optional(),
+  })
+  .transform((data) => ({
+    id: data.id,
+    invoiceNumber: data.invoiceNumber,
+    status: data.status,
+    invoiceDate: data.invoiceDate?.slice(0, 10) ?? null,
+    customerId: data.customerRef?.id ?? null,
+    lineItems: data.lineItems ?? [],
+  }));
+
+const invoiceListSchema = z.object({
+  totalPages: z.number(),
+  items: z.array(invoiceSummarySchema),
+});
+
+export type BokioInvoice = z.infer<typeof invoiceSummarySchema>;
+export type BokioInvoiceLineItem = BokioInvoice["lineItems"][number];
+
+async function fetchInvoicePage(page: number) {
+  const path = page === 1 ? "/invoices?pageSize=100" : `/invoices?pageSize=100&page=${page}`;
+  return invoiceListSchema.parse(await bokioFetch(path, { method: "GET" }));
+}
+
+export async function listInvoices(): Promise<BokioInvoice[]> {
+  const first = await fetchInvoicePage(1);
+  const items = [...first.items];
+  for (let page = 2; page <= first.totalPages; page++) {
+    const next = await fetchInvoicePage(page);
+    items.push(...next.items);
+  }
+  return items;
 }
 
 export interface InvoiceLine {

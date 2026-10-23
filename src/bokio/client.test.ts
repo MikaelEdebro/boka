@@ -7,6 +7,7 @@ import {
   getCustomer,
   getInvoice,
   listCustomers,
+  listInvoices,
 } from "@/bokio/client";
 
 const COMPANY_ID = "ea9ee4dd-fae3-4aec-a7db-6fc9cc1f8135";
@@ -189,6 +190,77 @@ describe("getCustomer", () => {
   });
 });
 
+describe("listInvoices", () => {
+  beforeEach(stubConfig);
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  });
+
+  const handMade = {
+    id: "inv-45",
+    invoiceNumber: 45,
+    status: "paid",
+    invoiceDate: "2026-09-04",
+    customerRef: { id: "cust-1", name: "Acme AB" },
+    lineItems: [
+      {
+        description: "Programmering (2026-08-01 - 2026-08-31)",
+        quantity: 112,
+        unitType: "hour",
+        unitPrice: 1000,
+        taxRate: 25,
+      },
+    ],
+  };
+
+  it("parses invoices with customer and line items", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(okResponse({ totalItems: 1, totalPages: 1, currentPage: 1, items: [handMade] }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    expect(await listInvoices()).toEqual([
+      {
+        id: "inv-45",
+        invoiceNumber: "45",
+        status: "paid",
+        invoiceDate: "2026-09-04",
+        customerId: "cust-1",
+        lineItems: [
+          {
+            description: "Programmering (2026-08-01 - 2026-08-31)",
+            quantity: 112,
+            unitType: "hour",
+            unitPrice: 1000,
+          },
+        ],
+      },
+    ]);
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      `https://api.bokio.se/v1/companies/${COMPANY_ID}/invoices?pageSize=100`,
+    );
+  });
+
+  it("follows totalPages", async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      const page = url.endsWith("page=2") ? 2 : 1;
+      return okResponse({
+        totalItems: 2,
+        totalPages: 2,
+        currentPage: page,
+        items: [{ ...handMade, id: `inv-${page}` }],
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    expect((await listInvoices()).map((invoice) => invoice.id)).toEqual(["inv-1", "inv-2"]);
+    expect(fetchMock.mock.calls[1][0]).toBe(
+      `https://api.bokio.se/v1/companies/${COMPANY_ID}/invoices?pageSize=100&page=2`,
+    );
+  });
+});
+
 describe("getInvoice", () => {
   beforeEach(stubConfig);
   afterEach(() => {
@@ -203,6 +275,7 @@ describe("getInvoice", () => {
         status: "published",
         invoiceNumber: "123",
         invoiceDate: "2026-10-31",
+        customerRef: { id: "cust-1" },
         dueDate: "2026-11-30",
         totalAmount: 15000,
         paidAmount: 0,
@@ -216,6 +289,7 @@ describe("getInvoice", () => {
     expect(invoice).toEqual({
       status: "published",
       invoiceNumber: "123",
+      customerId: "cust-1",
       totalAmount: 15000,
       paidAmount: 0,
       dueDate: "2026-11-30",

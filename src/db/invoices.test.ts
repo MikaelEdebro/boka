@@ -15,6 +15,35 @@ function seedClient(db: Db): number {
 }
 
 describe("invoices db", () => {
+  it("stores a linked invoice with its Bokio status and number", () => {
+    const db = testDb();
+    const clientId = seedClient(db);
+    const invoice = insertInvoice(db, {
+      bokioInvoiceId: "inv-45",
+      periodStart: "2026-08-01",
+      periodEnd: "2026-08-31",
+      hours: 112,
+      clientId,
+      bokioStatus: "paid",
+      bokioInvoiceNumber: "45",
+      statusCheckedAt: "2026-10-23T09:00:00.000Z",
+      linked: true,
+    });
+    expect(invoice).toMatchObject({ bokioStatus: "paid", bokioInvoiceNumber: "45", linked: true });
+  });
+
+  it("marks created invoices as not linked by default", () => {
+    const db = testDb();
+    const invoice = insertInvoice(db, {
+      bokioInvoiceId: "inv-1",
+      periodStart: "2026-08-01",
+      periodEnd: "2026-08-31",
+      hours: 1,
+      clientId: seedClient(db),
+    });
+    expect(invoice.linked).toBe(false);
+  });
+
   it("inserts an invoice row and returns it", () => {
     const db = testDb();
     const clientId = seedClient(db);
