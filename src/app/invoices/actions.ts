@@ -9,8 +9,8 @@ import { listWeekReports } from "@/db/weekReports";
 import {
   aggregateMonth,
   invoicedKey,
+  invoicedKeys,
   invoiceLineDescription,
-  monthKey,
   parseYearMonth,
 } from "@/lib/invoicing";
 import type { ActionResult } from "@/lib/actionResult";
@@ -44,9 +44,7 @@ async function createInvoiceOrThrow(yearMonth: string, clientId: number): Promis
     throw new Error("Bokio-nycklar saknas i .env.");
   }
 
-  const invoicedPairs = new Set(
-    listInvoices(db).map((invoice) => invoicedKey(monthKey(invoice.periodStart), invoice.clientId)),
-  );
+  const invoicedPairs = invoicedKeys(listInvoices(db));
   if (invoicedPairs.has(invoicedKey(yearMonth, clientId))) {
     throw new Error("Månaden är redan fakturerad för kunden.");
   }

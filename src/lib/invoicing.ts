@@ -65,6 +65,14 @@ export function invoicedKey(yearMonth: string, clientId: number): string {
   return `${yearMonth}:${clientId}`;
 }
 
+export function invoicedKeys(
+  invoices: { periodStart: string; clientId: number }[],
+): Set<string> {
+  return new Set(
+    invoices.map((invoice) => invoicedKey(monthKey(invoice.periodStart), invoice.clientId)),
+  );
+}
+
 type WorkEntry = AggregationEntry & { hours: number; clientId: number };
 
 function isWorkHours(entry: AggregationEntry): entry is WorkEntry {

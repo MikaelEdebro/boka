@@ -3,6 +3,7 @@ import {
   aggregateMonth,
   formatYearMonth,
   invoicedKey,
+  invoicedKeys,
   invoiceLineDescription,
   monthKey,
   monthPeriod,
@@ -63,6 +64,16 @@ const submittedAll = new Set(["2026-W43", "2026-W44"]);
 describe("invoicedKey", () => {
   it("joins the month and client id", () => {
     expect(invoicedKey("2026-10", 3)).toBe("2026-10:3");
+  });
+});
+
+describe("invoicedKeys", () => {
+  it("builds a set of (month, client) keys from invoice periods", () => {
+    const keys = invoicedKeys([
+      { periodStart: "2026-10-01", clientId: 1 },
+      { periodStart: "2026-10-15", clientId: 2 },
+    ]);
+    expect(keys).toEqual(new Set(["2026-10:1", "2026-10:2"]));
   });
 });
 

@@ -5,6 +5,7 @@ import { getWorkDays, listInvoices } from "@/db/invoices";
 import { listWeekReports } from "@/db/weekReports";
 import {
   invoicedKey,
+  invoicedKeys,
   invoiceLineDescription,
   monthKey,
   uninvoicedMonths,
@@ -30,10 +31,7 @@ export default function InvoicesPage() {
     listWeekReports(db).map((report) => formatWeek({ year: report.isoYear, week: report.isoWeek })),
   );
   const invoices = listInvoices(db);
-  const invoicedPairs = new Set(
-    invoices.map((invoice) => invoicedKey(monthKey(invoice.periodStart), invoice.clientId)),
-  );
-  const months = uninvoicedMonths(getWorkDays(db), submittedWeeks, clients, invoicedPairs);
+  const months = uninvoicedMonths(getWorkDays(db), submittedWeeks, clients, invoicedKeys(invoices));
 
   const envReady = Boolean(secrets.bokioToken && secrets.bokioCompanyId);
 
