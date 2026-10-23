@@ -54,6 +54,19 @@ describe("parseDay", () => {
     });
   });
 
+  it("keeps a non-work day that only has a note", () => {
+    expect(
+      parseDay({ date: "2026-10-20", type: "leave", hours: "", note: "Förskolan stängd" }),
+    ).toEqual({
+      op: "upsert",
+      date: "2026-10-20",
+      type: "leave",
+      hours: null,
+      note: "Förskolan stängd",
+      clientId: null,
+    });
+  });
+
   it("treats an empty work day as a delete", () => {
     expect(parseDay({ date: "2026-10-19", type: "work", hours: "" })).toEqual({
       op: "delete",

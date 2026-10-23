@@ -205,7 +205,7 @@ export function WeekGrid({
           <col className="w-40" />
           {showClients && <col className="w-40" />}
           <col className="w-24" />
-          <col className="w-40" />
+          <col />
           <col className="w-20" />
         </colgroup>
         <thead>
@@ -215,7 +215,7 @@ export function WeekGrid({
             <th className="py-2 font-medium">Typ</th>
             {showClients && <th className="py-2 font-medium">Kund</th>}
             <th className="py-2 font-medium">Timmar</th>
-            <th className="py-2 font-medium">Barn</th>
+            <th className="py-2 font-medium">Kommentar</th>
             <th className="py-2 font-medium"></th>
           </tr>
         </thead>
@@ -293,20 +293,18 @@ export function WeekGrid({
                   />
                 </td>
                 <td className="py-2">
-                  {state.type === "vab" && (
-                    <input
-                      aria-label={`Barn ${row.date}`}
-                      type="text"
-                      placeholder="Barn"
-                      list={VAB_NOTES_LIST_ID}
-                      value={state.note}
-                      disabled={submitted}
-                      onChange={(event) => editField(row.date, { note: event.target.value })}
-                      onBlur={(event) => update(row.date, { note: event.target.value })}
-                      {...selectOnFocus}
-                      className="w-32 rounded-md border bg-transparent px-2 py-1 disabled:opacity-50"
-                    />
-                  )}
+                  <input
+                    aria-label={`Kommentar ${row.date}`}
+                    type="text"
+                    placeholder={state.type === "vab" ? "Barn" : "Kommentar"}
+                    list={state.type === "vab" ? VAB_NOTES_LIST_ID : undefined}
+                    value={state.note}
+                    disabled={submitted}
+                    onChange={(event) => editField(row.date, { note: event.target.value })}
+                    onBlur={(event) => update(row.date, { note: event.target.value })}
+                    {...selectOnFocus}
+                    className="w-full rounded-md border bg-transparent px-2 py-1 disabled:opacity-50"
+                  />
                 </td>
                 <td
                   className="py-2 whitespace-nowrap text-muted-foreground"

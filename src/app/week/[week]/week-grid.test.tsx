@@ -153,27 +153,69 @@ describe("WeekGrid", () => {
     const table = container.querySelector("table");
     expect(table).toHaveClass("table-fixed");
 
-    // Six columns: Dag, Datum, Typ, Timmar, Barn, Status.
+    // Six columns: Dag, Datum, Typ, Timmar, Kommentar, Status.
     expect(container.querySelectorAll("colgroup col")).toHaveLength(6);
     expect(container.querySelectorAll("thead th")).toHaveLength(6);
 
-    // Every body row keeps all six cells, even when it is not a VAB row,
-    // so the columns never shift when the note input appears or disappears.
+    // Every body row keeps all six cells so the columns never shift.
     for (const bodyRow of container.querySelectorAll("tbody tr")) {
       expect(bodyRow.querySelectorAll("td")).toHaveLength(6);
     }
   });
 
-  it("shows a note input only for VAB rows and saves the note on blur", () => {
+  it("shows a Kommentar column header", () => {
     renderGrid();
 
-    expect(screen.queryByLabelText("Barn 2026-10-20")).not.toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Kommentar" })).toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: "Barn" })).not.toBeInTheDocument();
+  });
+
+  it("shows a note input on a work row with the Kommentar placeholder and saves it on blur", () => {
+    renderGrid();
+
+    const note = screen.getByLabelText("Kommentar 2026-10-19");
+    expect(note).toHaveAttribute("placeholder", "Kommentar");
+
+    fireEvent.change(note, { target: { value: "Kundmöte" } });
+    fireEvent.blur(note);
+
+    expect(saveDay).toHaveBeenLastCalledWith({
+      date: "2026-10-19",
+      type: "work",
+      hours: "8",
+      note: "Kundmöte",
+      clientId: "1",
+    });
+  });
+
+  it("shows a note input on a leave row and saves it on blur", () => {
+    renderGrid({
+      rows: [{ date: "2026-10-19", type: "leave", hours: null, note: null, clientId: null }],
+    });
+
+    const note = screen.getByLabelText("Kommentar 2026-10-19");
+    expect(note).toHaveAttribute("placeholder", "Kommentar");
+
+    fireEvent.change(note, { target: { value: "Förskolan stängd" } });
+    fireEvent.blur(note);
+
+    expect(saveDay).toHaveBeenLastCalledWith({
+      date: "2026-10-19",
+      type: "leave",
+      hours: "",
+      note: "Förskolan stängd",
+      clientId: "",
+    });
+  });
+
+  it("uses the Barn placeholder on VAB rows and saves the note on blur", () => {
+    renderGrid();
 
     fireEvent.change(screen.getByLabelText("Typ 2026-10-20"), {
       target: { value: "vab" },
     });
 
-    const note = screen.getByLabelText("Barn 2026-10-20");
+    const note = screen.getByLabelText("Kommentar 2026-10-20");
     expect(note).toHaveAttribute("placeholder", "Barn");
 
     fireEvent.change(note, { target: { value: "Stina" } });
@@ -194,35 +236,38 @@ describe("WeekGrid", () => {
     fireEvent.change(screen.getByLabelText("Typ 2026-10-20"), {
       target: { value: "vab" },
     });
-    fireEvent.change(screen.getByLabelText("Barn 2026-10-20"), {
+    fireEvent.change(screen.getByLabelText("Kommentar 2026-10-20"), {
       target: { value: "Otto" },
     });
-    fireEvent.blur(screen.getByLabelText("Barn 2026-10-20"));
+    fireEvent.blur(screen.getByLabelText("Kommentar 2026-10-20"));
 
     fireEvent.change(screen.getByLabelText("Typ 2026-10-20"), {
-      target: { value: "work" },
+      target: { value: "sick" },
     });
-    expect(screen.queryByLabelText("Barn 2026-10-20")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Kommentar 2026-10-20")).toHaveValue("Otto");
 
     fireEvent.change(screen.getByLabelText("Typ 2026-10-20"), {
       target: { value: "vab" },
     });
-    expect(screen.getByLabelText("Barn 2026-10-20")).toHaveValue("Otto");
+    expect(screen.getByLabelText("Kommentar 2026-10-20")).toHaveValue("Otto");
   });
 
-  it("offers previously used VAB notes as datalist options", () => {
+  it("offers previously used VAB notes as datalist options on VAB rows only", () => {
     renderGrid({ vabNotes: ["Otto", "Stina"] });
+
+    expect(screen.getByLabelText("Kommentar 2026-10-19")).not.toHaveAttribute("list");
 
     fireEvent.change(screen.getByLabelText("Typ 2026-10-20"), {
       target: { value: "vab" },
     });
 
-    const note = screen.getByLabelText("Barn 2026-10-20");
+    const note = screen.getByLabelText("Kommentar 2026-10-20");
     const listId = note.getAttribute("list");
     expect(listId).toBeTruthy();
     const datalist = document.getElementById(listId as string);
     expect(datalist).not.toBeNull();
     expect(datalist?.querySelectorAll("option")).toHaveLength(2);
+    expect(screen.getByLabelText("Kommentar 2026-10-19")).not.toHaveAttribute("list");
   });
 
   it("submits the week from the submit button", () => {
@@ -244,17 +289,17 @@ describe("WeekGrid", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("moves Tab from one hours input straight to the next, skipping the type dropdown", async () => {
+  it("moves Tab from hours to the row's note and then to the next hours, skipping the type dropdown", async () => {
     const user = userEvent.setup();
     renderGrid();
 
-    const monday = screen.getByLabelText("Timmar 2026-10-19");
-    const tuesday = screen.getByLabelText("Timmar 2026-10-20");
-    monday.focus();
+    screen.getByLabelText("Timmar 2026-10-19").focus();
 
     await user.tab();
+    expect(screen.getByLabelText("Kommentar 2026-10-19")).toHaveFocus();
 
-    expect(tuesday).toHaveFocus();
+    await user.tab();
+    expect(screen.getByLabelText("Timmar 2026-10-20")).toHaveFocus();
   });
 
   it("keeps the type dropdown out of the tab order", () => {
@@ -284,6 +329,7 @@ describe("WeekGrid", () => {
     });
 
     screen.getByLabelText("Timmar 2026-10-19").focus();
+    await user.tab();
     await user.tab();
     await user.keyboard("6");
 
@@ -317,7 +363,7 @@ describe("WeekGrid", () => {
     expect(tuesday).toHaveValue(6);
   });
 
-  it("selects the VAB note on focus so typing replaces it", async () => {
+  it("selects the note on focus so typing replaces it", async () => {
     const user = userEvent.setup();
     renderGrid({
       rows: [
@@ -326,10 +372,10 @@ describe("WeekGrid", () => {
       ],
     });
 
-    await user.click(screen.getByLabelText("Barn 2026-10-20"));
+    await user.click(screen.getByLabelText("Kommentar 2026-10-20"));
     await user.keyboard("Olle");
 
-    expect(screen.getByLabelText("Barn 2026-10-20")).toHaveValue("Olle");
+    expect(screen.getByLabelText("Kommentar 2026-10-20")).toHaveValue("Olle");
   });
 
   it("autofocuses Monday's hours input when the week is not submitted", () => {
