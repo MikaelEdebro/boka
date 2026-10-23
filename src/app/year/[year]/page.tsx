@@ -7,6 +7,7 @@ import { getYearEntries } from "@/db/dayEntries";
 import { listInvoices } from "@/db/invoices";
 import { DAY_TYPE_LABELS, MONTH_LABELS } from "@/lib/labels";
 import { invoicedMonths, summarizeYear, vabDaysByMonth } from "@/lib/summary";
+import { cn } from "@/lib/utils";
 
 const YEAR_RE = /^\d{4}$/;
 
@@ -69,30 +70,30 @@ export default async function YearPage({
             const invoice = invoiced.get(month.month);
             const isCurrent = month.month === currentMonth;
             return (
-            <tr
-              key={month.month}
-              className={`border-b border-border${isCurrent ? " bg-muted/50" : ""}`}
-            >
-              <td className={`py-2 pr-4${isCurrent ? " font-medium" : ""}`}>
-                {MONTH_LABELS[month.month - 1]}
-              </td>
-              <td className="py-2 pr-4 text-right tabular-nums">{month.workHours}</td>
-              <td className="py-2 pr-4 text-center">
-                {invoice ? (
-                  <span title={`${invoice.hours} h fakturerat ${invoice.periodStart}`}>
-                    <Check
-                      className="inline size-4 text-muted-foreground"
-                      aria-label="Fakturerad"
-                    />
-                  </span>
-                ) : null}
-              </td>
-              {DAY_TYPE_COLUMNS.map((key) => (
-                <td key={key} className="py-2 pr-4 text-right tabular-nums">
-                  {month[key]}
+              <tr
+                key={month.month}
+                className={cn("border-b border-border", isCurrent && "bg-muted/50")}
+              >
+                <td className={cn("py-2 pr-4", isCurrent && "font-medium")}>
+                  {MONTH_LABELS[month.month - 1]}
                 </td>
-              ))}
-            </tr>
+                <td className="py-2 pr-4 text-right tabular-nums">{month.workHours}</td>
+                <td className="py-2 pr-4 text-center">
+                  {invoice ? (
+                    <span title={`${invoice.hours} h fakturerat ${invoice.periodStart}`}>
+                      <Check
+                        className="inline size-4 text-muted-foreground"
+                        aria-label="Fakturerad"
+                      />
+                    </span>
+                  ) : null}
+                </td>
+                {DAY_TYPE_COLUMNS.map((key) => (
+                  <td key={key} className="py-2 pr-4 text-right tabular-nums">
+                    {month[key]}
+                  </td>
+                ))}
+              </tr>
             );
           })}
         </tbody>
