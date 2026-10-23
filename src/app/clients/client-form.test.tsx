@@ -53,6 +53,14 @@ describe("ClientForm", () => {
     expect(error).not.toHaveBeenCalled();
   });
 
+  it("right-aligns the submit button", () => {
+    const { rerender } = render(<ClientForm bokioCustomers={customers} />);
+    expect(screen.getByRole("button", { name: "Lägg till kund" }).parentElement).toHaveClass("flex", "justify-end");
+
+    rerender(<ClientForm client={storedClient} bokioCustomers={customers} />);
+    expect(screen.getByRole("button", { name: "Spara" }).parentElement).toHaveClass("flex", "justify-end");
+  });
+
   it("toasts a success message after adding a client", async () => {
     saveClient.mockResolvedValue({ ok: true });
     const user = userEvent.setup();

@@ -125,7 +125,9 @@ export function ClientForm({
         />
       </div>
 
-      <SubmitButton>{client ? "Spara" : "Lägg till kund"}</SubmitButton>
+      <div className="flex justify-end">
+        <SubmitButton>{client ? "Spara" : "Lägg till kund"}</SubmitButton>
+      </div>
     </form>
   );
 }

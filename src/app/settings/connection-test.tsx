@@ -13,7 +13,9 @@ export function ConnectionTest() {
 
   return (
     <form action={runConnectionTest}>
-      <SubmitButton variant="outline">Testa Bokio-anslutning</SubmitButton>
+      <div className="flex justify-end">
+        <SubmitButton variant="outline">Testa Bokio-anslutning</SubmitButton>
+      </div>
     </form>
   );
 }

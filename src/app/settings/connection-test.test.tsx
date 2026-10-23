@@ -27,6 +27,14 @@ describe("ConnectionTest", () => {
     expect(error).not.toHaveBeenCalled();
   });
 
+  it("right-aligns the test button", () => {
+    render(<ConnectionTest />);
+    expect(screen.getByRole("button", { name: "Testa Bokio-anslutning" }).parentElement).toHaveClass(
+      "flex",
+      "justify-end",
+    );
+  });
+
   it("toasts the connection count on success", async () => {
     testBokioConnection.mockResolvedValue({ ok: true, message: "Ansluten: 2 kunder hittades" });
     const user = userEvent.setup();
