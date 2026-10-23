@@ -1,12 +1,22 @@
+import { connection } from "next/server";
+import { getDb } from "@/db/client";
+import { getSettings } from "@/db/settings";
 import { getSecretsStatus } from "@/lib/settings";
 import { ConnectionTest } from "./connection-test";
+import { ThemeForm } from "./theme-form";
 
-export default function SettingsPage() {
+export default async function SettingsPage() {
+  await connection();
   const secrets = getSecretsStatus();
+  const { theme } = getSettings(getDb());
 
   return (
     <>
       <h1 className="mb-6 text-2xl font-semibold">Inställningar</h1>
+
+      <section className="mb-8">
+        <ThemeForm theme={theme} />
+      </section>
 
       <section>
         <h2 className="mb-3 text-sm font-medium text-muted-foreground">Bokio-nycklar (.env)</h2>
