@@ -107,6 +107,11 @@ export function WeekGrid({ week, rows, submitted, submittedAt, vabNotes }: WeekG
     persist(date, next);
   }
 
+  // Local-only edit while typing; the value is persisted on blur via update().
+  function editField(date: string, patch: Partial<RowState>) {
+    setStates((prev) => ({ ...prev, [date]: { ...prev[date], ...patch } }));
+  }
+
   return (
     <>
       {!submitted && (
@@ -179,12 +184,7 @@ export function WeekGrid({ week, rows, submitted, submittedAt, vabNotes }: WeekG
                     autoFocus={index === 0 && !submitted}
                     value={state.hours}
                     disabled={submitted}
-                    onChange={(event) =>
-                      setStates((prev) => ({
-                        ...prev,
-                        [row.date]: { ...prev[row.date], hours: event.target.value },
-                      }))
-                    }
+                    onChange={(event) => editField(row.date, { hours: event.target.value })}
                     onKeyDown={(event) => {
                       if (event.key === "Enter") {
                         event.preventDefault();
@@ -202,12 +202,7 @@ export function WeekGrid({ week, rows, submitted, submittedAt, vabNotes }: WeekG
                       list={VAB_NOTES_LIST_ID}
                       value={state.note}
                       disabled={submitted}
-                      onChange={(event) =>
-                        setStates((prev) => ({
-                          ...prev,
-                          [row.date]: { ...prev[row.date], note: event.target.value },
-                        }))
-                      }
+                      onChange={(event) => editField(row.date, { note: event.target.value })}
                       onBlur={(event) => update(row.date, { note: event.target.value })}
                       className="ml-2 w-32 rounded-md border bg-transparent px-2 py-1 disabled:opacity-50"
                     />
