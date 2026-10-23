@@ -6,10 +6,12 @@
 //                               listing unblocked issues with branch names.
 //   Phase 2 (Execute + Review): For each issue, a sandbox is created via
 //                               createSandbox(). The implementer runs first
-//                               (100 iterations). If it produces commits, a
-//                               reviewer runs in the same sandbox on the same
-//                               branch (1 iteration). All issue pipelines run
-//                               concurrently via Promise.allSettled().
+//                               (100 iterations). If it produces commits and
+//                               the diff is large or touches high-risk paths
+//                               (see blastRadius), a reviewer runs in the same
+//                               sandbox on the same branch (1 iteration).
+//                               All issue pipelines run concurrently via
+//                               Promise.allSettled().
 //   Phase 3 (Merge):            A single agent merges all completed branches
 //                               into the current branch.
 //
@@ -25,6 +27,60 @@ import * as sandcastle from "@ai-hero/sandcastle";
 import { docker } from "@ai-hero/sandcastle/sandboxes/docker";
 import { execFileSync } from "node:child_process";
 import { z } from "zod";
+
+// ---------------------------------------------------------------------------
+// Blast radius: decide whether a branch needs the reviewer
+//
+// Small, low-risk diffs (a color tweak, a removed link) skip review. A change
+// is reviewed when it touches high-risk paths, or exceeds the size limits.
+// Test files do not count toward the size.
+// ---------------------------------------------------------------------------
+
+const REVIEW_SKIP_LIMITS = { maxFiles: 4, maxLines: 60 };
+
+const HIGH_RISK_PATHS = [
+  /^src\/db\//,
+  /^drizzle\//,
+  /^src\/lib\//,
+  /^src\/bokio\//,
+  /actions\.ts$/,
+  /^package(-lock)?\.json$/,
+  /^next\.config\.ts$/,
+  /^\.sandcastle\//,
+];
+
+type BlastRadius = {
+  files: number;
+  lines: number;
+  risky: string[];
+  needsReview: boolean;
+};
+
+function blastRadius(branch: string): BlastRadius {
+  const out = execFileSync("git", ["diff", "--numstat", `HEAD...${branch}`], {
+    encoding: "utf8",
+  });
+  const changed = out
+    .trim()
+    .split("\n")
+    .filter((line) => line !== "")
+    .map((line) => {
+      const [added, removed, path] = line.split("\t");
+      return { path: path ?? "", added: Number(added) || 0, removed: Number(removed) || 0 };
+    })
+    .filter((file) => !/\.test\.[jt]sx?$/.test(file.path));
+
+  const lines = changed.reduce((sum, file) => sum + file.added + file.removed, 0);
+  const risky = changed
+    .filter((file) => HIGH_RISK_PATHS.some((pattern) => pattern.test(file.path)))
+    .map((file) => file.path);
+  const needsReview =
+    risky.length > 0 ||
+    changed.length > REVIEW_SKIP_LIMITS.maxFiles ||
+    lines > REVIEW_SKIP_LIMITS.maxLines;
+
+  return { files: changed.length, lines, risky, needsReview };
+}
 
 // Commits on a branch that are not yet in the current branch. Branches are
 // reused across runs (deterministic names), so a branch can carry finished work
@@ -149,8 +205,18 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
           },
         });
 
-        // Only review if the implementer produced commits
+        // Only review if the implementer produced commits and the change is
+        // large or risky enough to be worth a review pass.
         if (implement.commits.length > 0) {
+          const radius = blastRadius(issue.branch);
+          const summary = `${radius.files} file(s), ${radius.lines} line(s)` +
+            (radius.risky.length > 0 ? `, high-risk: ${radius.risky.join(", ")}` : "");
+          if (!radius.needsReview) {
+            console.log(`  ${issue.branch}: small change (${summary}), skipping review`);
+            return implement;
+          }
+          console.log(`  ${issue.branch}: reviewing (${summary})`);
+
           const review = await sandbox.run({
             name: "reviewer",
             maxIterations: 1,

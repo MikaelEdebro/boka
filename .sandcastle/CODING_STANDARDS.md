@@ -20,3 +20,4 @@ See `CLAUDE.md` for the stack and domain glossary.
 - Schema changes go through `src/db/schema.ts` + `npm run db:generate`; commit the generated migration.
 - Pages are server components; mutations are server actions validated with Zod.
 - Keep DB queries in `src/db/`, pure domain logic in `src/lib/`, UI in `src/components/`.
+- Name drizzle migrations something descriptive, like 0004_add_comment_column.sql
