@@ -26,6 +26,7 @@ export async function createInvoiceForMonth(
     revalidatePath("/invoices");
     return { ok: true };
   } catch (error) {
+    console.error("createInvoiceForMonth failed:", error);
     return { ok: false, error: error instanceof Error ? error.message : "Kunde inte skapa faktura." };
   }
 }

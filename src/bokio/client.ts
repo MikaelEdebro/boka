@@ -29,18 +29,50 @@ export function getBokioConfig(): BokioConfig {
   return { token, companyId, baseUrl: `https://api.bokio.se/v1/companies/${companyId}` };
 }
 
+const STATUS_REASONS: Record<number, string> = {
+  400: "Bad Request",
+  401: "Unauthorized",
+  403: "Forbidden",
+  404: "Not Found",
+  429: "Too Many Requests",
+  500: "Internal Server Error",
+  502: "Bad Gateway",
+  503: "Service Unavailable",
+};
+
+const STATUS_HINTS: Record<number, string> = {
+  401: "token ogiltig eller utgången",
+  403: "token saknar behörighet för detta företag eller endpoint, kontrollera integrationens scopes och BOKIO_COMPANY_ID",
+  404: "fel företags-id eller resurs",
+};
+
+function bokioErrorMessage(status: number, body: string): string {
+  const reason = STATUS_REASONS[status];
+  const head = reason ? `${status} ${reason}` : `${status}`;
+  const trimmed = body.trim();
+  const bodyPart = trimmed === "" ? " (tom svarskropp)" : `: ${body.slice(0, 500)}`;
+  const hint = STATUS_HINTS[status];
+  const hintPart = hint ? ` — ${hint}` : "";
+  return `Bokio svarade ${head}${bodyPart}${hintPart}`;
+}
+
 export class BokioError extends Error {
   constructor(
     readonly status: number,
     readonly body: string,
   ) {
-    super(`Bokio API error ${status}: ${body}`);
+    super(bokioErrorMessage(status, body));
     this.name = "BokioError";
   }
 }
 
 async function bokioFetch(path: string, init: RequestInit): Promise<unknown> {
   const config = getBokioConfig();
+  const method = init.method ?? "GET";
+  if (process.env.BOKIO_DEBUG === "1") {
+    // Request start line; the company id lives in baseUrl, path carries none.
+    console.info(`Bokio → ${method} ${path}`);
+  }
   const response = await fetch(`${config.baseUrl}${path}`, {
     ...init,
     headers: {
@@ -50,7 +82,14 @@ async function bokioFetch(path: string, init: RequestInit): Promise<unknown> {
     },
   });
   if (!response.ok) {
-    throw new BokioError(response.status, await response.text());
+    const body = await response.text();
+    // Structured server-side trace. Never logs the token; path carries no company id.
+    console.error(
+      `Bokio API error: method=${method} path=${path} status=${response.status} ` +
+        `content-type=${response.headers.get("content-type") ?? ""} ` +
+        `body=${body.slice(0, 500)}`,
+    );
+    throw new BokioError(response.status, body);
   }
   return response.json();
 }

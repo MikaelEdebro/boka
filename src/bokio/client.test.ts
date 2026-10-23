@@ -81,6 +81,29 @@ describe("listCustomers", () => {
     expect(error).toMatchObject({ name: "BokioError", status: 403, body: "forbidden" });
   });
 
+  it("maps a 403 with an empty body to a useful message and logs it server-side", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("", { status: 403 })),
+    );
+
+    const error = (await listCustomers().catch((e) => e)) as BokioError;
+    expect(error).toBeInstanceOf(BokioError);
+    expect(error.message).toContain("Bokio svarade 403 Forbidden");
+    expect(error.message).toContain("(tom svarskropp)");
+    expect(error.message).toMatch(/behörighet/);
+
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    const logged = errorSpy.mock.calls[0][0] as string;
+    expect(logged).toContain("method=GET");
+    expect(logged).toContain("path=/customers?pageSize=100");
+    expect(logged).toContain("status=403");
+    expect(logged).not.toContain("test-token");
+
+    errorSpy.mockRestore();
+  });
+
   it("throws the config error before touching the network when env is missing", async () => {
     vi.stubEnv("BOKIO_TOKEN", "");
     const fetchMock = vi.fn();

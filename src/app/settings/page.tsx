@@ -1,4 +1,5 @@
 import { getSecretsStatus } from "@/lib/settings";
+import { ConnectionTest } from "./connection-test";
 
 export default function SettingsPage() {
   const secrets = getSecretsStatus();
@@ -13,6 +14,9 @@ export default function SettingsPage() {
           <SecretRow label="BOKIO_TOKEN" configured={secrets.bokioToken} />
           <SecretRow label="BOKIO_COMPANY_ID" configured={secrets.bokioCompanyId} />
         </ul>
+        <div className="mt-4">
+          <ConnectionTest />
+        </div>
       </section>
     </>
   );
