@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { listCustomers } from "@/bokio/client";
 import { getDb } from "@/db/client";
 import { listClients } from "@/db/clients";
 import {
@@ -18,8 +19,19 @@ const currency = new Intl.NumberFormat("sv-SE", {
   maximumFractionDigits: 0,
 });
 
-export default function ClientsPage() {
+async function bokioCustomerNames(): Promise<Map<string, string>> {
+  try {
+    const customers = await listCustomers();
+    return new Map(customers.map((customer) => [customer.id, customer.name]));
+  } catch {
+    // Tooltip is a nicety; never let a Bokio outage break the clients list.
+    return new Map();
+  }
+}
+
+export default async function ClientsPage() {
   const clients = listClients(getDb());
+  const bokioNames = await bokioCustomerNames();
 
   return (
     <>
@@ -46,7 +58,9 @@ export default function ClientsPage() {
                 <TableRow key={client.id}>
                   <TableCell className="font-medium">{client.name}</TableCell>
                   <TableCell>{currency.format(client.hourlyRate)}</TableCell>
-                  <TableCell className="font-mono">{client.bokioCustomerId}</TableCell>
+                  <TableCell className="font-mono" title={bokioNames.get(client.bokioCustomerId)}>
+                    {client.bokioCustomerId}
+                  </TableCell>
                   <TableCell>{client.invoiceItemName}</TableCell>
                   <TableCell>
                     {client.isDefault ? (

@@ -113,8 +113,27 @@ const customerListSchema = z.object({
 export type BokioCustomer = z.infer<typeof customerSchema>;
 
 export async function listCustomers(): Promise<BokioCustomer[]> {
-  const data = await bokioFetch("/customers?pageSize=100", { method: "GET" });
-  return customerListSchema.parse(data).items;
+  const first = customerListSchema.parse(
+    await bokioFetch("/customers?pageSize=100", { method: "GET" }),
+  );
+  const items = [...first.items];
+  for (let page = 2; page <= first.totalPages; page++) {
+    const next = customerListSchema.parse(
+      await bokioFetch(`/customers?pageSize=100&page=${page}`, { method: "GET" }),
+    );
+    items.push(...next.items);
+  }
+  return items;
+}
+
+export async function getCustomer(id: string): Promise<BokioCustomer | null> {
+  try {
+    const data = await bokioFetch(`/customers/${id}`, { method: "GET" });
+    return customerSchema.parse(data);
+  } catch (error) {
+    if (error instanceof BokioError && error.status === 404) return null;
+    throw error;
+  }
 }
 
 const invoiceResponseSchema = z.object({

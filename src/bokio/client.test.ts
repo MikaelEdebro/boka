@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { BokioError, createInvoice, getBokioConfig, listCustomers } from "@/bokio/client";
+import {
+  type BokioCustomer,
+  BokioError,
+  createInvoice,
+  getBokioConfig,
+  getCustomer,
+  listCustomers,
+} from "@/bokio/client";
 
 const COMPANY_ID = "ea9ee4dd-fae3-4aec-a7db-6fc9cc1f8135";
 
@@ -111,6 +118,73 @@ describe("listCustomers", () => {
 
     await expect(listCustomers()).rejects.toThrow(/BOKIO_TOKEN/);
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("follows pagination and returns customers from every page", async () => {
+    const page = (currentPage: number, items: BokioCustomer[]) =>
+      okResponse({ totalItems: 3, totalPages: 2, currentPage, items });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        page(1, [
+          { id: "c-1", name: "Acme AB", customerNumber: "001", type: "company" },
+          { id: "c-2", name: "Globex", customerNumber: "002", type: "company" },
+        ]),
+      )
+      .mockResolvedValueOnce(
+        page(2, [{ id: "c-3", name: "Initech", customerNumber: "003", type: "company" }]),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const customers = await listCustomers();
+
+    expect(customers.map((c) => c.id)).toEqual(["c-1", "c-2", "c-3"]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[1][0]).toContain("page=2");
+  });
+});
+
+describe("getCustomer", () => {
+  beforeEach(stubConfig);
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  });
+
+  it("returns the customer on a 200 response", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      okResponse({ id: "c-1", name: "Acme AB", customerNumber: "001", type: "company" }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const customer = await getCustomer("c-1");
+
+    expect(customer).toEqual({ id: "c-1", name: "Acme AB", customerNumber: "001", type: "company" });
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      `https://api.bokio.se/v1/companies/${COMPANY_ID}/customers/c-1`,
+    );
+  });
+
+  it("returns null when the customer does not exist (404)", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("not found", { status: 404 })),
+    );
+
+    await expect(getCustomer("missing")).resolves.toBeNull();
+    errorSpy.mockRestore();
+  });
+
+  it("rethrows non-404 errors", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("forbidden", { status: 403 })),
+    );
+
+    await expect(getCustomer("c-1")).rejects.toBeInstanceOf(BokioError);
+    errorSpy.mockRestore();
   });
 });
 

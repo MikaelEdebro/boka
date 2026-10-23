@@ -13,7 +13,13 @@ vi.mock("@/db/client", async (importOriginal) => ({
   getDb: () => db,
 }));
 
-import { makeDefaultClient, removeClient, saveClient } from "./actions";
+const getCustomer = vi.fn();
+vi.mock("@/bokio/client", () => ({
+  getCustomer: (...args: unknown[]) => getCustomer(...args),
+  listCustomers: vi.fn(),
+}));
+
+import { loadBokioCustomers, makeDefaultClient, removeClient, saveClient } from "./actions";
 
 function form(fields: Record<string, string>): FormData {
   const data = new FormData();
@@ -25,6 +31,8 @@ describe("clients actions", () => {
   beforeEach(() => {
     db = testDb();
     revalidatePath.mockReset();
+    getCustomer.mockReset();
+    getCustomer.mockResolvedValue({ id: "cust-1", name: "Acme AB", type: "company" });
   });
 
   it("saveClient validates and inserts a new client", async () => {
@@ -94,6 +102,54 @@ describe("clients actions", () => {
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toMatch(/tidrapporter eller fakturor/);
     expect(db.select().from(clients).all()).toHaveLength(1);
+  });
+
+  it("saveClient verifies the customer id against Bokio and passes it through", async () => {
+    await saveClient(
+      null,
+      form({ name: " Acme ", hourlyRate: "1200", bokioCustomerId: "cust-1", invoiceItemName: "" }),
+    );
+
+    expect(getCustomer).toHaveBeenCalledWith("cust-1");
+  });
+
+  it("saveClient refuses to save when the customer id is unknown in Bokio", async () => {
+    getCustomer.mockResolvedValue(null);
+
+    const result = await saveClient(
+      null,
+      form({ name: "Acme", hourlyRate: "1200", bokioCustomerId: "nope", invoiceItemName: "" }),
+    );
+
+    expect(result).toEqual({ ok: false, error: "Kund-ID finns inte i Bokio" });
+    expect(listClients(db)).toHaveLength(0);
+  });
+
+  it("saveClient refuses to save when Bokio is unreachable", async () => {
+    getCustomer.mockRejectedValue(new Error("Bokio svarade 403 Forbidden"));
+
+    const result = await saveClient(
+      null,
+      form({ name: "Acme", hourlyRate: "1200", bokioCustomerId: "cust-1", invoiceItemName: "" }),
+    );
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toMatch(/403/);
+    expect(listClients(db)).toHaveLength(0);
+  });
+
+  it("loadBokioCustomers returns the Bokio customer list", async () => {
+    const { listCustomers } = await import("@/bokio/client");
+    vi.mocked(listCustomers).mockResolvedValue([
+      { id: "c-1", name: "Acme AB", customerNumber: "001", type: "company" },
+    ]);
+
+    const result = await loadBokioCustomers();
+
+    expect(result).toEqual({
+      ok: true,
+      customers: [{ id: "c-1", name: "Acme AB", customerNumber: "001", type: "company" }],
+    });
   });
 
   it("makeDefaultClient moves the default", async () => {

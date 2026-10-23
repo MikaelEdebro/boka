@@ -17,15 +17,15 @@ beforeEach(() => {
   getDb().delete(clients).run();
 });
 
-describe("ClientsPage", () => {
-  it("shows an empty state when there are no clients", () => {
-    render(<ClientsPage />);
+describe("ClientsPage", async () => {
+  it("shows an empty state when there are no clients", async () => {
+    render(await ClientsPage());
 
     expect(screen.getByRole("heading", { name: "Kunder" })).toBeInTheDocument();
     expect(screen.getByText("Inga kunder ännu.")).toBeInTheDocument();
   });
 
-  it("lists clients with their details and marks the default", () => {
+  it("lists clients with their details and marks the default", async () => {
     upsertClient(getDb(), {
       name: "Acme",
       hourlyRate: 1200,
@@ -39,7 +39,7 @@ describe("ClientsPage", () => {
       invoiceItemName: "Programmering",
     });
 
-    render(<ClientsPage />);
+    render(await ClientsPage());
 
     expect(screen.getByText("Acme")).toBeInTheDocument();
     expect(screen.getByText("cust-1")).toBeInTheDocument();
@@ -54,8 +54,8 @@ describe("ClientsPage", () => {
     expect(screen.getAllByRole("link", { name: "Redigera" })).toHaveLength(2);
   });
 
-  it("renders the add-client form", () => {
-    render(<ClientsPage />);
+  it("renders the add-client form", async () => {
+    render(await ClientsPage());
 
     expect(screen.getByLabelText("Namn")).toBeInTheDocument();
     expect(screen.getByLabelText("Bokio kund-ID")).toBeInTheDocument();
