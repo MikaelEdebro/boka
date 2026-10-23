@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getDb } from "@/db/client";
+import { getDefaultClient } from "@/db/clients";
 import { getWorkDays, listInvoices } from "@/db/invoices";
-import { getSettings } from "@/db/settings";
 import { listWeekReports } from "@/db/weekReports";
 import {
   invoiceLineDescription,
@@ -21,7 +21,7 @@ const currency = new Intl.NumberFormat("sv-SE", {
 
 export default function InvoicesPage() {
   const db = getDb();
-  const settings = getSettings(db);
+  const client = getDefaultClient(db);
   const secrets = getSecretsStatus();
 
   const submittedWeeks = new Set(
@@ -32,15 +32,15 @@ export default function InvoicesPage() {
   const months = uninvoicedMonths(
     getWorkDays(db),
     submittedWeeks,
-    settings.hourlyRate,
+    client?.hourlyRate ?? null,
     invoicedMonths,
   );
 
-  const settingsReady = settings.hourlyRate != null && settings.bokioCustomerId !== "";
+  const clientReady = client != null;
   const envReady = secrets.bokioToken && secrets.bokioCompanyId;
 
   function blockedReason(month: MonthAggregation): string | null {
-    if (!settingsReady) return "Ange timpris och Bokio-kund i inställningarna.";
+    if (!clientReady) return "Lägg till en standardkund under Kunder.";
     if (!envReady) return "Bokio-nycklar saknas i .env.";
     if (month.unsubmittedWeeks.length > 0) {
       return `Veckor ej inskickade: ${month.unsubmittedWeeks.join(", ")}`;
@@ -71,13 +71,15 @@ export default function InvoicesPage() {
                       {month.hours} h
                       {month.amount != null ? ` · ${currency.format(month.amount)}` : ""}
                     </p>
-                    <p className="text-sm text-muted-foreground">
-                      {invoiceLineDescription(
-                        settings.invoiceItemName,
-                        month.periodStart,
-                        month.periodEnd,
-                      )}
-                    </p>
+                    {client && (
+                      <p className="text-sm text-muted-foreground">
+                        {invoiceLineDescription(
+                          client.invoiceItemName,
+                          month.periodStart,
+                          month.periodEnd,
+                        )}
+                      </p>
+                    )}
                     {reason && <p className="mt-1 text-sm text-destructive">{reason}</p>}
                   </div>
                   <CreateInvoiceButton yearMonth={month.yearMonth} disabled={reason !== null} />

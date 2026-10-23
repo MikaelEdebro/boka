@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { dayEntries, invoices } from "@/db/schema";
+import { upsertClient } from "@/db/clients";
 import { insertInvoice } from "@/db/invoices";
-import { upsertSettings } from "@/db/settings";
 import { submitWeekReport } from "@/db/weekReports";
 import { testDb } from "@/test/db";
 import type { Db } from "@/db/client";
@@ -21,7 +21,12 @@ vi.mock("@/bokio/client", () => ({ createInvoice: (...args: unknown[]) => create
 import { createInvoiceForMonth } from "./actions";
 
 function configure() {
-  upsertSettings(db, { hourlyRate: 1200, bokioCustomerId: "cust-1", invoiceItemName: "Konsult" });
+  upsertClient(db, {
+    name: "Standard",
+    hourlyRate: 1200,
+    bokioCustomerId: "cust-1",
+    invoiceItemName: "Konsult",
+  });
   vi.stubEnv("BOKIO_TOKEN", "token");
   vi.stubEnv("BOKIO_COMPANY_ID", "company");
 }
@@ -83,20 +88,24 @@ describe("createInvoiceForMonth", () => {
     expect(db.select().from(invoices).all()).toHaveLength(0);
   });
 
-  it("refuses when the hourly rate is missing", async () => {
+  it("refuses when there is no default client", async () => {
     vi.stubEnv("BOKIO_TOKEN", "token");
     vi.stubEnv("BOKIO_COMPANY_ID", "company");
-    upsertSettings(db, { hourlyRate: null, bokioCustomerId: "cust-1", invoiceItemName: "Konsult" });
     seedSubmittedWorkWeek();
 
     const result = await createInvoiceForMonth("2026-10");
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error).toMatch(/[Tt]impris/);
+    if (!result.ok) expect(result.error).toMatch(/standardkund/i);
     expect(createInvoice).not.toHaveBeenCalled();
   });
 
   it("refuses when Bokio env secrets are missing", async () => {
-    upsertSettings(db, { hourlyRate: 1200, bokioCustomerId: "cust-1", invoiceItemName: "Konsult" });
+    upsertClient(db, {
+      name: "Standard",
+      hourlyRate: 1200,
+      bokioCustomerId: "cust-1",
+      invoiceItemName: "Konsult",
+    });
     seedSubmittedWorkWeek();
 
     const result = await createInvoiceForMonth("2026-10");

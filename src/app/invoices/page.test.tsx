@@ -1,9 +1,9 @@
 import { render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getDb } from "@/db/client";
-import { dayEntries, invoices, settings, weekReports } from "@/db/schema";
+import { clients, dayEntries, invoices, weekReports } from "@/db/schema";
+import { upsertClient } from "@/db/clients";
 import { insertInvoice } from "@/db/invoices";
-import { upsertSettings } from "@/db/settings";
 import { submitWeekReport } from "@/db/weekReports";
 import InvoicesPage from "./page";
 
@@ -11,13 +11,18 @@ vi.mock("./actions", () => ({ createInvoiceForMonth: vi.fn() }));
 
 beforeEach(() => {
   const db = getDb();
-  for (const table of [dayEntries, weekReports, invoices, settings]) db.delete(table).run();
+  for (const table of [dayEntries, weekReports, invoices, clients]) db.delete(table).run();
 });
 
 afterEach(() => vi.unstubAllEnvs());
 
 function seedConfig() {
-  upsertSettings(getDb(), { hourlyRate: 1200, bokioCustomerId: "cust-1", invoiceItemName: "Konsult" });
+  upsertClient(getDb(), {
+    name: "Standard",
+    hourlyRate: 1200,
+    bokioCustomerId: "cust-1",
+    invoiceItemName: "Konsult",
+  });
   vi.stubEnv("BOKIO_TOKEN", "token");
   vi.stubEnv("BOKIO_COMPANY_ID", "company");
 }

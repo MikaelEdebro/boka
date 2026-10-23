@@ -23,9 +23,16 @@ export const weekReports = sqliteTable(
 
 export const settings = sqliteTable("settings", {
   id: integer("id").primaryKey(),
-  hourlyRate: real("hourly_rate"),
-  bokioCustomerId: text("bokio_customer_id"),
-  invoiceItemName: text("invoice_item_name"),
+});
+
+export const clients = sqliteTable("clients", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull(),
+  hourlyRate: real("hourly_rate").notNull(),
+  bokioCustomerId: text("bokio_customer_id").notNull(),
+  invoiceItemName: text("invoice_item_name").notNull().default("Programmering"),
+  isDefault: integer("is_default", { mode: "boolean" }).notNull().default(false),
+  createdAt: text("created_at").notNull(),
 });
 
 export const invoices = sqliteTable("invoices", {
@@ -41,3 +48,4 @@ export type DayEntry = typeof dayEntries.$inferSelect;
 export type WeekReport = typeof weekReports.$inferSelect;
 export type Settings = typeof settings.$inferSelect;
 export type Invoice = typeof invoices.$inferSelect;
+export type Client = typeof clients.$inferSelect;

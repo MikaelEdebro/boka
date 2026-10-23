@@ -3,8 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { createInvoice } from "@/bokio/client";
 import { getDb } from "@/db/client";
+import { getDefaultClient } from "@/db/clients";
 import { getWorkDays, insertInvoice, listInvoices } from "@/db/invoices";
-import { getSettings } from "@/db/settings";
 import { listWeekReports } from "@/db/weekReports";
 import {
   aggregateMonth,
@@ -30,12 +30,9 @@ async function createInvoiceOrThrow(yearMonth: string): Promise<void> {
   if (!parseYearMonth(yearMonth)) throw new Error(`Ogiltig månad: ${yearMonth}`);
 
   const db = getDb();
-  const settings = getSettings(db);
-  if (settings.hourlyRate == null) {
-    throw new Error("Timpris saknas i inställningarna.");
-  }
-  if (!settings.bokioCustomerId) {
-    throw new Error("Bokio-kund saknas i inställningarna.");
+  const client = getDefaultClient(db);
+  if (!client) {
+    throw new Error("Ingen standardkund är vald. Lägg till en kund under Kunder.");
   }
 
   const secrets = getSecretsStatus();
@@ -51,7 +48,7 @@ async function createInvoiceOrThrow(yearMonth: string): Promise<void> {
   const submittedWeeks = new Set(
     listWeekReports(db).map((report) => formatWeek({ year: report.isoYear, week: report.isoWeek })),
   );
-  const aggregation = aggregateMonth(yearMonth, getWorkDays(db), submittedWeeks, settings.hourlyRate);
+  const aggregation = aggregateMonth(yearMonth, getWorkDays(db), submittedWeeks, client.hourlyRate);
 
   if (aggregation.hours === 0) {
     throw new Error("Inga arbetstimmar att fakturera för månaden.");
@@ -61,17 +58,17 @@ async function createInvoiceOrThrow(yearMonth: string): Promise<void> {
   }
 
   const bokioInvoiceId = await createInvoice({
-    customerId: settings.bokioCustomerId,
+    customerId: client.bokioCustomerId,
     invoiceDate: aggregation.periodEnd,
     lines: [
       {
         description: invoiceLineDescription(
-          settings.invoiceItemName,
+          client.invoiceItemName,
           aggregation.periodStart,
           aggregation.periodEnd,
         ),
         quantity: aggregation.hours,
-        unitPrice: settings.hourlyRate,
+        unitPrice: client.hourlyRate,
       },
     ],
   });

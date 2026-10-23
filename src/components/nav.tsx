@@ -23,6 +23,11 @@ const NAV_LINKS: NavLink[] = [
     isActive: (p) => p.startsWith("/invoices"),
   },
   {
+    href: "/clients",
+    label: "Kunder",
+    isActive: (p) => p.startsWith("/clients"),
+  },
+  {
     href: "/settings",
     label: "Inställningar",
     isActive: (p) => p.startsWith("/settings"),
