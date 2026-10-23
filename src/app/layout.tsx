@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist_Mono, Inter } from "next/font/google";
 import { Suspense } from "react";
 import { Nav } from "@/components/nav";
+import { CONTAINER } from "@/lib/layout";
 import "./globals.css";
 
 const inter = Inter({ variable: "--font-sans", subsets: ["latin"] });
@@ -19,7 +20,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Suspense>
           <Nav />
         </Suspense>
-        <main className="mx-auto w-full max-w-3xl flex-1 p-6">{children}</main>
+        <main className={`${CONTAINER} flex-1 p-6`}>{children}</main>
       </body>
     </html>
   );

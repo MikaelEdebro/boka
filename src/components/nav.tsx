@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { CONTAINER } from "@/lib/layout";
 
 type NavLink = { href: string; label: string; isActive: (pathname: string) => boolean };
 
@@ -33,7 +34,7 @@ export function Nav() {
 
   return (
     <header className="border-b border-border">
-      <nav className="mx-auto flex w-full max-w-3xl items-center gap-4 overflow-x-auto px-6 py-3">
+      <nav className={`${CONTAINER} flex items-center gap-4 overflow-x-auto px-6 py-3`}>
         <Link href="/" className="shrink-0 text-lg font-semibold">
           Boka
         </Link>
