@@ -7,6 +7,7 @@ export type NewInvoice = {
   periodStart: string;
   periodEnd: string;
   hours: number;
+  clientId: number;
 };
 
 export function listInvoices(db: Db): Invoice[] {
@@ -25,11 +26,21 @@ export function insertInvoice(
     .get();
 }
 
-export type WorkDay = { date: string; type: DayType; hours: number | null };
+export type WorkDay = {
+  date: string;
+  type: DayType;
+  hours: number | null;
+  clientId: number | null;
+};
 
 export function getWorkDays(db: Db): WorkDay[] {
   return db
-    .select({ date: dayEntries.date, type: dayEntries.type, hours: dayEntries.hours })
+    .select({
+      date: dayEntries.date,
+      type: dayEntries.type,
+      hours: dayEntries.hours,
+      clientId: dayEntries.clientId,
+    })
     .from(dayEntries)
     .where(eq(dayEntries.type, "work"))
     .all();

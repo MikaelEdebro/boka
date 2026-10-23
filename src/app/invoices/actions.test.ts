@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { dayEntries, invoices } from "@/db/schema";
+import { dayEntries, invoices, type Client } from "@/db/schema";
 import { upsertClient } from "@/db/clients";
-import { insertInvoice } from "@/db/invoices";
 import { submitWeekReport } from "@/db/weekReports";
 import { testDb } from "@/test/db";
 import type { Db } from "@/db/client";
@@ -20,22 +19,28 @@ vi.mock("@/bokio/client", () => ({ createInvoice: (...args: unknown[]) => create
 
 import { createInvoiceForMonth } from "./actions";
 
-function configure() {
-  upsertClient(db, {
-    name: "Standard",
-    hourlyRate: 1200,
-    bokioCustomerId: "cust-1",
-    invoiceItemName: "Konsult",
+function addClient(values: Partial<Omit<Client, "id" | "isDefault" | "createdAt">> = {}): Client {
+  return upsertClient(db, {
+    name: values.name ?? "Standard",
+    hourlyRate: values.hourlyRate ?? 1200,
+    bokioCustomerId: values.bokioCustomerId ?? "cust-1",
+    invoiceItemName: values.invoiceItemName ?? "Konsult",
   });
+}
+
+let defaultClientId: number;
+
+function configure() {
+  defaultClientId = addClient().id;
   vi.stubEnv("BOKIO_TOKEN", "token");
   vi.stubEnv("BOKIO_COMPANY_ID", "company");
 }
 
-function seedSubmittedWorkWeek() {
+function seedSubmittedWorkWeek(clientId = defaultClientId) {
   db.insert(dayEntries)
     .values([
-      { date: "2026-10-19", type: "work", hours: 8, updatedAt: "2026-10-19T08:00:00Z" },
-      { date: "2026-10-20", type: "work", hours: 6, updatedAt: "2026-10-20T08:00:00Z" },
+      { date: "2026-10-19", type: "work", hours: 8, clientId, updatedAt: "2026-10-19T08:00:00Z" },
+      { date: "2026-10-20", type: "work", hours: 6, clientId, updatedAt: "2026-10-20T08:00:00Z" },
     ])
     .run();
   submitWeekReport(db, { year: 2026, week: 43 }, "2026-10-25T18:00:00.000Z");
@@ -53,7 +58,7 @@ describe("createInvoiceForMonth", () => {
     configure();
     seedSubmittedWorkWeek();
 
-    const result = await createInvoiceForMonth("2026-10");
+    const result = await createInvoiceForMonth("2026-10", defaultClientId);
 
     expect(result).toEqual({ ok: true });
     expect(createInvoice).toHaveBeenCalledWith({
@@ -71,44 +76,97 @@ describe("createInvoiceForMonth", () => {
       periodStart: "2026-10-01",
       periodEnd: "2026-10-31",
       hours: 14,
+      clientId: defaultClientId,
     });
     expect(revalidatePath).toHaveBeenCalledWith("/invoices");
+  });
+
+  it("creates one invoice per client for the same month", async () => {
+    vi.stubEnv("BOKIO_TOKEN", "token");
+    vi.stubEnv("BOKIO_COMPANY_ID", "company");
+    const a = addClient({ name: "A", bokioCustomerId: "cust-a", hourlyRate: 1000, invoiceItemName: "A-rad" });
+    const b = addClient({ name: "B", bokioCustomerId: "cust-b", hourlyRate: 800, invoiceItemName: "B-rad" });
+    db.insert(dayEntries)
+      .values([
+        { date: "2026-10-19", type: "work", hours: 8, clientId: a.id, updatedAt: "t" },
+        { date: "2026-10-20", type: "work", hours: 5, clientId: b.id, updatedAt: "t" },
+      ])
+      .run();
+    submitWeekReport(db, { year: 2026, week: 43 }, "2026-10-25T18:00:00.000Z");
+
+    createInvoice.mockReset().mockResolvedValueOnce("inv-a").mockResolvedValueOnce("inv-b");
+
+    expect(await createInvoiceForMonth("2026-10", a.id)).toEqual({ ok: true });
+    expect(await createInvoiceForMonth("2026-10", b.id)).toEqual({ ok: true });
+
+    expect(createInvoice).toHaveBeenNthCalledWith(1, {
+      customerId: "cust-a",
+      invoiceDate: "2026-10-31",
+      lines: [{ description: "A-rad (2026-10-01 - 2026-10-31)", quantity: 8, unitPrice: 1000 }],
+    });
+    expect(createInvoice).toHaveBeenNthCalledWith(2, {
+      customerId: "cust-b",
+      invoiceDate: "2026-10-31",
+      lines: [{ description: "B-rad (2026-10-01 - 2026-10-31)", quantity: 5, unitPrice: 800 }],
+    });
+
+    const rows = db.select().from(invoices).all();
+    expect(rows.map((r) => [r.bokioInvoiceId, r.clientId, r.hours])).toEqual([
+      ["inv-a", a.id, 8],
+      ["inv-b", b.id, 5],
+    ]);
+  });
+
+  it("refuses a second invoice for the same month and client", async () => {
+    configure();
+    seedSubmittedWorkWeek();
+
+    expect(await createInvoiceForMonth("2026-10", defaultClientId)).toEqual({ ok: true });
+
+    createInvoice.mockClear();
+    const result = await createInvoiceForMonth("2026-10", defaultClientId);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toMatch(/redan/i);
+    expect(createInvoice).not.toHaveBeenCalled();
+    expect(db.select().from(invoices).all()).toHaveLength(1);
   });
 
   it("refuses when the month has unsubmitted weeks with work hours", async () => {
     configure();
     db.insert(dayEntries)
-      .values({ date: "2026-10-19", type: "work", hours: 8, updatedAt: "2026-10-19T08:00:00Z" })
+      .values({
+        date: "2026-10-19",
+        type: "work",
+        hours: 8,
+        clientId: defaultClientId,
+        updatedAt: "2026-10-19T08:00:00Z",
+      })
       .run();
 
-    const result = await createInvoiceForMonth("2026-10");
+    const result = await createInvoiceForMonth("2026-10", defaultClientId);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toMatch(/inskickad/i);
     expect(createInvoice).not.toHaveBeenCalled();
     expect(db.select().from(invoices).all()).toHaveLength(0);
   });
 
-  it("refuses when there is no default client", async () => {
+  it("refuses when the client does not exist", async () => {
     vi.stubEnv("BOKIO_TOKEN", "token");
     vi.stubEnv("BOKIO_COMPANY_ID", "company");
-    seedSubmittedWorkWeek();
+    const client = addClient();
+    seedSubmittedWorkWeek(client.id);
 
-    const result = await createInvoiceForMonth("2026-10");
+    const result = await createInvoiceForMonth("2026-10", client.id + 999);
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error).toMatch(/standardkund/i);
+    if (!result.ok) expect(result.error).toMatch(/[Kk]unden finns inte/);
     expect(createInvoice).not.toHaveBeenCalled();
   });
 
   it("refuses when Bokio env secrets are missing", async () => {
-    upsertClient(db, {
-      name: "Standard",
-      hourlyRate: 1200,
-      bokioCustomerId: "cust-1",
-      invoiceItemName: "Konsult",
-    });
-    seedSubmittedWorkWeek();
+    const client = addClient();
+    seedSubmittedWorkWeek(client.id);
 
-    const result = await createInvoiceForMonth("2026-10");
+    const result = await createInvoiceForMonth("2026-10", client.id);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toMatch(/\.env/);
     expect(createInvoice).not.toHaveBeenCalled();
@@ -117,33 +175,16 @@ describe("createInvoiceForMonth", () => {
   it("refuses when the month has no work hours", async () => {
     configure();
 
-    const result = await createInvoiceForMonth("2026-10");
+    const result = await createInvoiceForMonth("2026-10", defaultClientId);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toMatch(/arbetstimmar/i);
     expect(createInvoice).not.toHaveBeenCalled();
   });
 
-  it("refuses when the month is already invoiced", async () => {
-    configure();
-    seedSubmittedWorkWeek();
-    insertInvoice(db, {
-      bokioInvoiceId: "old",
-      periodStart: "2026-10-01",
-      periodEnd: "2026-10-31",
-      hours: 14,
-    });
-
-    const result = await createInvoiceForMonth("2026-10");
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error).toMatch(/redan/i);
-    expect(createInvoice).not.toHaveBeenCalled();
-    expect(db.select().from(invoices).all()).toHaveLength(1);
-  });
-
   it("rejects an invalid month param", async () => {
     configure();
 
-    const result = await createInvoiceForMonth("2026-13");
+    const result = await createInvoiceForMonth("2026-13", defaultClientId);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toMatch(/[Oo]giltig/);
     expect(createInvoice).not.toHaveBeenCalled();

@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { getDb } from "@/db/client";
-import { getDefaultClient } from "@/db/clients";
+import { listClients } from "@/db/clients";
 import { getWorkDays, listInvoices } from "@/db/invoices";
 import { listWeekReports } from "@/db/weekReports";
 import {
+  invoicedKey,
   invoiceLineDescription,
   monthKey,
   uninvoicedMonths,
@@ -21,26 +22,22 @@ const currency = new Intl.NumberFormat("sv-SE", {
 
 export default function InvoicesPage() {
   const db = getDb();
-  const client = getDefaultClient(db);
+  const clients = listClients(db);
+  const clientsById = new Map(clients.map((client) => [client.id, client]));
   const secrets = getSecretsStatus();
 
   const submittedWeeks = new Set(
     listWeekReports(db).map((report) => formatWeek({ year: report.isoYear, week: report.isoWeek })),
   );
   const invoices = listInvoices(db);
-  const invoicedMonths = new Set(invoices.map((invoice) => monthKey(invoice.periodStart)));
-  const months = uninvoicedMonths(
-    getWorkDays(db),
-    submittedWeeks,
-    client?.hourlyRate ?? null,
-    invoicedMonths,
+  const invoicedPairs = new Set(
+    invoices.map((invoice) => invoicedKey(monthKey(invoice.periodStart), invoice.clientId)),
   );
+  const months = uninvoicedMonths(getWorkDays(db), submittedWeeks, clients, invoicedPairs);
 
-  const clientReady = client != null;
-  const envReady = secrets.bokioToken && secrets.bokioCompanyId;
+  const envReady = Boolean(secrets.bokioToken && secrets.bokioCompanyId);
 
   function blockedReason(month: MonthAggregation): string | null {
-    if (!clientReady) return "Lägg till en standardkund under Kunder.";
     if (!envReady) return "Bokio-nycklar saknas i .env.";
     if (month.unsubmittedWeeks.length > 0) {
       return `Veckor ej inskickade: ${month.unsubmittedWeeks.join(", ")}`;
@@ -54,22 +51,26 @@ export default function InvoicesPage() {
 
       <section>
         <h2 className="mb-3 text-sm font-medium text-muted-foreground">Att fakturera</h2>
-        {months.length === 0 ? (
+        {clients.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Lägg till en kund under Kunder.</p>
+        ) : months.length === 0 ? (
           <p className="text-sm text-muted-foreground">Inga månader att fakturera.</p>
         ) : (
           <ul className="divide-y divide-border rounded-md border border-border">
             {months.map((month) => {
               const reason = blockedReason(month);
+              const client = clientsById.get(month.clientId);
               return (
                 <li
-                  key={month.yearMonth}
+                  key={invoicedKey(month.yearMonth, month.clientId)}
                   className="flex items-center justify-between gap-4 p-4"
                 >
                   <div>
-                    <p className="font-medium">{month.yearMonth}</p>
+                    <p className="font-medium">
+                      {month.yearMonth} · {client?.name}
+                    </p>
                     <p className="text-sm text-muted-foreground">
-                      {month.hours} h
-                      {month.amount != null ? ` · ${currency.format(month.amount)}` : ""}
+                      {month.hours} h · {currency.format(month.amount)}
                     </p>
                     {client && (
                       <p className="text-sm text-muted-foreground">
@@ -82,7 +83,11 @@ export default function InvoicesPage() {
                     )}
                     {reason && <p className="mt-1 text-sm text-destructive">{reason}</p>}
                   </div>
-                  <CreateInvoiceButton yearMonth={month.yearMonth} disabled={reason !== null} />
+                  <CreateInvoiceButton
+                    yearMonth={month.yearMonth}
+                    clientId={month.clientId}
+                    disabled={reason !== null}
+                  />
                 </li>
               );
             })}
@@ -99,7 +104,9 @@ export default function InvoicesPage() {
             {invoices.map((invoice) => (
               <li key={invoice.id} className="flex items-center justify-between gap-4 p-4">
                 <div>
-                  <p className="font-medium">{monthKey(invoice.periodStart)}</p>
+                  <p className="font-medium">
+                    {monthKey(invoice.periodStart)} · {clientsById.get(invoice.clientId)?.name}
+                  </p>
                   <p className="text-sm text-muted-foreground">
                     {invoice.hours} h · {invoice.periodStart}–{invoice.periodEnd}
                   </p>

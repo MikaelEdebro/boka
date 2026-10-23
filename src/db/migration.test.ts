@@ -69,3 +69,36 @@ describe("0002 client_id backfill", () => {
     db.close();
   });
 });
+
+describe("0003 invoices.client_id backfill", () => {
+  it("adds a not-null client_id and backfills existing invoices with the default client", () => {
+    const db = new Database(":memory:");
+    db.exec(migrationSql("0000"));
+    db.exec(migrationSql("0001"));
+    db.exec(migrationSql("0002"));
+
+    db.prepare(
+      `INSERT INTO clients (name, hourly_rate, bokio_customer_id, invoice_item_name, is_default, created_at)
+       VALUES ('Other', 900, 'c0', 'Programmering', 0, '2026-01-01T00:00:00.000Z'),
+              ('Standard', 1000, 'c1', 'Programmering', 1, '2026-01-01T00:00:00.000Z')`,
+    ).run();
+    const defaultId = db.prepare(`SELECT id FROM clients WHERE is_default = 1`).get() as {
+      id: number;
+    };
+
+    db.prepare(
+      `INSERT INTO invoices (bokio_invoice_id, period_start, period_end, hours, created_at)
+       VALUES ('inv-1', '2026-01-01', '2026-01-31', 120, 't')`,
+    ).run();
+
+    db.exec(migrationSql("0003"));
+
+    const rows = db
+      .prepare(`SELECT bokio_invoice_id as bokioInvoiceId, client_id as clientId FROM invoices`)
+      .all() as { bokioInvoiceId: string; clientId: number | null }[];
+
+    expect(rows).toEqual([{ bokioInvoiceId: "inv-1", clientId: defaultId.id }]);
+
+    db.close();
+  });
+});

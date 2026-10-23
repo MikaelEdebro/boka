@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { getDb } from "@/db/client";
+import { listClients } from "@/db/clients";
 import { getYearEntries } from "@/db/dayEntries";
 import { listInvoices } from "@/db/invoices";
 import { DAY_TYPE_LABELS, MONTH_LABELS } from "@/lib/labels";
@@ -32,7 +33,15 @@ export default async function YearPage({
   const entries = getYearEntries(db, year);
   const summary = summarizeYear(year, entries);
   const vabMonths = vabDaysByMonth(year, entries);
-  const invoiced = invoicedMonths(year, listInvoices(db));
+  const clientNamesById = new Map(listClients(db).map((client) => [client.id, client.name]));
+  const invoiced = invoicedMonths(
+    year,
+    listInvoices(db).map((invoice) => ({
+      periodStart: invoice.periodStart,
+      hours: invoice.hours,
+      clientName: clientNamesById.get(invoice.clientId) ?? "Okänd kund",
+    })),
+  );
 
   return (
     <>
@@ -67,7 +76,7 @@ export default async function YearPage({
         </thead>
         <tbody>
           {summary.months.map((month) => {
-            const invoice = invoiced.get(month.month);
+            const invoiceClients = invoiced.get(month.month);
             const isCurrent = month.month === currentMonth;
             return (
               <tr
@@ -79,14 +88,17 @@ export default async function YearPage({
                 </td>
                 <td className="py-2 pr-4 text-right tabular-nums">{month.workHours}</td>
                 <td className="py-2 pr-4 text-center">
-                  {invoice ? (
-                    <span title={`${invoice.hours} h fakturerat ${invoice.periodStart}`}>
+                  {invoiceClients?.map((invoice) => (
+                    <span
+                      key={invoice.clientName}
+                      title={`${invoice.clientName}: ${invoice.hours} h fakturerat ${invoice.periodStart}`}
+                    >
                       <Check
                         className="inline size-4 text-muted-foreground"
-                        aria-label="Fakturerad"
+                        aria-label={`Fakturerad: ${invoice.clientName}`}
                       />
                     </span>
-                  ) : null}
+                  ))}
                 </td>
                 {DAY_TYPE_COLUMNS.map((key) => (
                   <td key={key} className="py-2 pr-4 text-right tabular-nums">

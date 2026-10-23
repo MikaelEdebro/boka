@@ -89,6 +89,7 @@ describe("clients db", () => {
         periodStart: "2026-10-01",
         periodEnd: "2026-10-31",
         hours: 10,
+        clientId: client.id,
         createdAt: "2026-10-31T00:00:00Z",
       })
       .run();

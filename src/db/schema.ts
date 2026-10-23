@@ -42,6 +42,9 @@ export const invoices = sqliteTable("invoices", {
   periodStart: text("period_start").notNull(),
   periodEnd: text("period_end").notNull(),
   hours: real("hours").notNull(),
+  clientId: integer("client_id")
+    .notNull()
+    .references(() => clients.id),
   createdAt: text("created_at").notNull(),
 });
 

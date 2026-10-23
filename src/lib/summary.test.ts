@@ -89,16 +89,28 @@ describe("vabDaysByMonth", () => {
 });
 
 describe("invoicedMonths", () => {
-  it("maps each month of the year to its invoiced hours and earliest period start", () => {
+  it("groups a month's invoices by client, newest-earliest period start, summing hours", () => {
     const result = invoicedMonths(2026, [
-      { periodStart: "2026-10-02", hours: 160 },
-      { periodStart: "2026-10-20", hours: 8 },
-      { periodStart: "2026-03-01", hours: 120 },
-      { periodStart: "2025-12-01", hours: 100 },
+      { periodStart: "2026-10-02", hours: 160, clientName: "Kund A" },
+      { periodStart: "2026-10-20", hours: 8, clientName: "Kund A" },
+      { periodStart: "2026-03-01", hours: 120, clientName: "Kund B" },
+      { periodStart: "2025-12-01", hours: 100, clientName: "Kund A" },
     ]);
 
-    expect(result.get(10)).toEqual({ hours: 168, periodStart: "2026-10-02" });
-    expect(result.get(3)).toEqual({ hours: 120, periodStart: "2026-03-01" });
+    expect(result.get(10)).toEqual([{ clientName: "Kund A", hours: 168, periodStart: "2026-10-02" }]);
+    expect(result.get(3)).toEqual([{ clientName: "Kund B", hours: 120, periodStart: "2026-03-01" }]);
     expect(result.has(12)).toBe(false);
+  });
+
+  it("lists one entry per client, sorted by name, when a month has several clients", () => {
+    const result = invoicedMonths(2026, [
+      { periodStart: "2026-10-02", hours: 160, clientName: "Kund B" },
+      { periodStart: "2026-10-02", hours: 40, clientName: "Kund A" },
+    ]);
+
+    expect(result.get(10)).toEqual([
+      { clientName: "Kund A", hours: 40, periodStart: "2026-10-02" },
+      { clientName: "Kund B", hours: 160, periodStart: "2026-10-02" },
+    ]);
   });
 });

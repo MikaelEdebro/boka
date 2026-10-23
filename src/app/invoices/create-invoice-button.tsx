@@ -6,12 +6,14 @@ import { createInvoiceForMonth } from "./actions";
 
 export function CreateInvoiceButton({
   yearMonth,
+  clientId,
   disabled,
 }: {
   yearMonth: string;
+  clientId: number;
   disabled: boolean;
 }) {
-  const [, formAction] = useActionWithToast(() => createInvoiceForMonth(yearMonth), {
+  const [, formAction] = useActionWithToast(() => createInvoiceForMonth(yearMonth, clientId), {
     success: "Faktura skapad i Bokio",
   });
 

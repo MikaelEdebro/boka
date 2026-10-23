@@ -91,26 +91,38 @@ export function vabDaysByMonth(year: number, entries: SummaryEntry[]): VabMonth[
     }));
 }
 
-export type InvoicePeriod = { periodStart: string; hours: number };
-export type MonthInvoice = { hours: number; periodStart: string };
+export type InvoicePeriod = { periodStart: string; hours: number; clientName: string };
+export type MonthInvoiceClient = { clientName: string; hours: number; periodStart: string };
 
 export function invoicedMonths(
   year: number,
   invoices: InvoicePeriod[],
-): Map<number, MonthInvoice> {
-  const byMonth = new Map<number, MonthInvoice>();
+): Map<number, MonthInvoiceClient[]> {
+  const byMonth = new Map<number, Map<string, MonthInvoiceClient>>();
 
   for (const invoice of invoices) {
     if (invoice.periodStart.slice(0, 4) !== String(year)) continue;
     const month = Number(invoice.periodStart.slice(5, 7));
-    const existing = byMonth.get(month);
+    const clients = byMonth.get(month) ?? new Map<string, MonthInvoiceClient>();
+    byMonth.set(month, clients);
+
+    const existing = clients.get(invoice.clientName);
     if (existing) {
       existing.hours += invoice.hours;
       if (invoice.periodStart < existing.periodStart) existing.periodStart = invoice.periodStart;
     } else {
-      byMonth.set(month, { hours: invoice.hours, periodStart: invoice.periodStart });
+      clients.set(invoice.clientName, {
+        clientName: invoice.clientName,
+        hours: invoice.hours,
+        periodStart: invoice.periodStart,
+      });
     }
   }
 
-  return byMonth;
+  return new Map(
+    [...byMonth.entries()].map(([month, clients]) => [
+      month,
+      [...clients.values()].sort((a, b) => a.clientName.localeCompare(b.clientName)),
+    ]),
+  );
 }

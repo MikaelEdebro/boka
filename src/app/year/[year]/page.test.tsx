@@ -1,9 +1,10 @@
 import { render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getDb } from "@/db/client";
+import { upsertClient } from "@/db/clients";
 import { upsertDayEntry } from "@/db/dayEntries";
 import { insertInvoice } from "@/db/invoices";
-import { dayEntries, invoices } from "@/db/schema";
+import { clients, dayEntries, invoices } from "@/db/schema";
 import YearPage from "./page";
 
 vi.mock("next/server", () => ({ connection: vi.fn(async () => {}) }));
@@ -11,7 +12,17 @@ vi.mock("next/server", () => ({ connection: vi.fn(async () => {}) }));
 beforeEach(() => {
   getDb().delete(dayEntries).run();
   getDb().delete(invoices).run();
+  getDb().delete(clients).run();
 });
+
+function seedClient(name = "Standard"): number {
+  return upsertClient(getDb(), {
+    name,
+    hourlyRate: 1200,
+    bokioCustomerId: "c",
+    invoiceItemName: "Programmering",
+  }).id;
+}
 
 afterEach(() => {
   vi.useRealTimers();
@@ -66,21 +77,50 @@ describe("YearPage", () => {
     expect(within(list).getByText(/2026-03-11/)).toBeInTheDocument();
   });
 
-  it("marks invoiced months with a check and the invoiced hours as a title", async () => {
+  it("marks invoiced months with a check and the client and hours as a title", async () => {
     const db = getDb();
+    const clientId = seedClient("Kund A");
     insertInvoice(
       db,
-      { bokioInvoiceId: "b1", periodStart: "2026-10-02", periodEnd: "2026-10-31", hours: 160 },
+      {
+        bokioInvoiceId: "b1",
+        periodStart: "2026-10-02",
+        periodEnd: "2026-10-31",
+        hours: 160,
+        clientId,
+      },
       "t",
     );
 
     render(await YearPage({ params: Promise.resolve({ year: "2026" }) }));
 
     const oktober = screen.getByRole("row", { name: /Oktober/ });
-    expect(within(oktober).getByTitle("160 h fakturerat 2026-10-02")).toBeInTheDocument();
+    expect(within(oktober).getByTitle("Kund A: 160 h fakturerat 2026-10-02")).toBeInTheDocument();
 
     const januari = screen.getByRole("row", { name: /Januari/ });
     expect(within(januari).queryByTitle(/fakturerat/)).not.toBeInTheDocument();
+  });
+
+  it("shows one check per invoiced client for a month", async () => {
+    const db = getDb();
+    const a = seedClient("Kund A");
+    const b = seedClient("Kund B");
+    insertInvoice(
+      db,
+      { bokioInvoiceId: "b1", periodStart: "2026-10-02", periodEnd: "2026-10-31", hours: 100, clientId: a },
+      "t",
+    );
+    insertInvoice(
+      db,
+      { bokioInvoiceId: "b2", periodStart: "2026-10-02", periodEnd: "2026-10-31", hours: 50, clientId: b },
+      "t",
+    );
+
+    render(await YearPage({ params: Promise.resolve({ year: "2026" }) }));
+
+    const oktober = screen.getByRole("row", { name: /Oktober/ });
+    expect(within(oktober).getByTitle("Kund A: 100 h fakturerat 2026-10-02")).toBeInTheDocument();
+    expect(within(oktober).getByTitle("Kund B: 50 h fakturerat 2026-10-02")).toBeInTheDocument();
   });
 
   it("highlights the current month's row when showing the current year", async () => {

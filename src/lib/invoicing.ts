@@ -41,31 +41,46 @@ export function monthPeriod(yearMonth: string): MonthPeriod {
   return { periodStart, periodEnd };
 }
 
-export type AggregationEntry = { date: string; type: DayType; hours: number | null };
+export type AggregationEntry = {
+  date: string;
+  type: DayType;
+  hours: number | null;
+  clientId: number | null;
+};
 
 export type MonthAggregation = {
   yearMonth: string;
+  clientId: number;
   periodStart: string;
   periodEnd: string;
   hours: number;
-  hourlyRate: number | null;
-  amount: number | null;
+  hourlyRate: number;
+  amount: number;
   unsubmittedWeeks: string[];
 };
 
-function isWorkHours(entry: AggregationEntry): entry is AggregationEntry & { hours: number } {
-  return entry.type === "work" && entry.hours != null && entry.hours > 0;
+export type ClientRate = { id: number; hourlyRate: number };
+
+export function invoicedKey(yearMonth: string, clientId: number): string {
+  return `${yearMonth}:${clientId}`;
+}
+
+type WorkEntry = AggregationEntry & { hours: number; clientId: number };
+
+function isWorkHours(entry: AggregationEntry): entry is WorkEntry {
+  return entry.type === "work" && entry.hours != null && entry.hours > 0 && entry.clientId != null;
 }
 
 export function aggregateMonth(
   yearMonth: string,
+  clientId: number,
   entries: AggregationEntry[],
   submittedWeeks: ReadonlySet<string>,
-  hourlyRate: number | null,
+  hourlyRate: number,
 ): MonthAggregation {
   const workDays = entries.filter(
-    (entry): entry is AggregationEntry & { hours: number } =>
-      monthKey(entry.date) === yearMonth && isWorkHours(entry),
+    (entry): entry is WorkEntry =>
+      monthKey(entry.date) === yearMonth && isWorkHours(entry) && entry.clientId === clientId,
   );
 
   const hours = workDays.reduce((sum, entry) => sum + entry.hours, 0);
@@ -79,11 +94,12 @@ export function aggregateMonth(
   const { periodStart, periodEnd } = monthPeriod(yearMonth);
   return {
     yearMonth,
+    clientId,
     periodStart,
     periodEnd,
     hours,
     hourlyRate,
-    amount: hourlyRate == null ? null : hours * hourlyRate,
+    amount: hours * hourlyRate,
     unsubmittedWeeks: [...unsubmitted].sort(),
   };
 }
@@ -91,17 +107,27 @@ export function aggregateMonth(
 export function uninvoicedMonths(
   entries: AggregationEntry[],
   submittedWeeks: ReadonlySet<string>,
-  hourlyRate: number | null,
-  invoicedMonths: ReadonlySet<string>,
+  clients: ClientRate[],
+  invoiced: ReadonlySet<string>,
 ): MonthAggregation[] {
-  const months = new Set<string>();
+  const rates = new Map(clients.map((client) => [client.id, client.hourlyRate]));
+
+  const pairs = new Map<string, { yearMonth: string; clientId: number }>();
   for (const entry of entries) {
-    if (isWorkHours(entry)) months.add(monthKey(entry.date));
+    if (!isWorkHours(entry)) continue;
+    const yearMonth = monthKey(entry.date);
+    const key = invoicedKey(yearMonth, entry.clientId);
+    if (!pairs.has(key)) pairs.set(key, { yearMonth, clientId: entry.clientId });
   }
 
-  return [...months]
-    .filter((yearMonth) => !invoicedMonths.has(yearMonth))
-    .sort()
-    .reverse()
-    .map((yearMonth) => aggregateMonth(yearMonth, entries, submittedWeeks, hourlyRate));
+  return [...pairs.entries()]
+    .filter(([key, pair]) => !invoiced.has(key) && rates.has(pair.clientId))
+    .sort(([, a], [, b]) =>
+      a.yearMonth === b.yearMonth
+        ? a.clientId - b.clientId
+        : b.yearMonth.localeCompare(a.yearMonth),
+    )
+    .map(([, pair]) =>
+      aggregateMonth(pair.yearMonth, pair.clientId, entries, submittedWeeks, rates.get(pair.clientId)!),
+    );
 }
