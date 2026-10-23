@@ -5,30 +5,28 @@ import { usePathname } from "next/navigation";
 
 type NavLink = { href: string; label: string; isActive: (pathname: string) => boolean };
 
-function navLinks(): NavLink[] {
-  return [
-    {
-      href: "/week",
-      label: "Vecka",
-      isActive: (p) => p.startsWith("/week"),
-    },
-    {
-      href: "/year",
-      label: "År",
-      isActive: (p) => p.startsWith("/year"),
-    },
-    {
-      href: "/invoices",
-      label: "Fakturor",
-      isActive: (p) => p.startsWith("/invoices"),
-    },
-    {
-      href: "/settings",
-      label: "Inställningar",
-      isActive: (p) => p.startsWith("/settings"),
-    },
-  ];
-}
+const NAV_LINKS: NavLink[] = [
+  {
+    href: "/week",
+    label: "Vecka",
+    isActive: (p) => p.startsWith("/week"),
+  },
+  {
+    href: "/year",
+    label: "År",
+    isActive: (p) => p.startsWith("/year"),
+  },
+  {
+    href: "/invoices",
+    label: "Fakturor",
+    isActive: (p) => p.startsWith("/invoices"),
+  },
+  {
+    href: "/settings",
+    label: "Inställningar",
+    isActive: (p) => p.startsWith("/settings"),
+  },
+];
 
 export function Nav() {
   const pathname = usePathname();
@@ -40,7 +38,7 @@ export function Nav() {
           Boka
         </Link>
         <ul className="flex items-center gap-1">
-          {navLinks().map((link) => {
+          {NAV_LINKS.map((link) => {
             const active = link.isActive(pathname);
             return (
               <li key={link.href}>
