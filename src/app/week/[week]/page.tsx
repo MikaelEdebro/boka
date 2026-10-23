@@ -15,6 +15,8 @@ import {
 } from "@/lib/week";
 import { WeekGrid, type WeekGridRow } from "./week-grid";
 
+export const instant = false;
+
 export default async function WeekPage({
   params,
 }: {

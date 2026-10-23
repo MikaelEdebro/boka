@@ -1,6 +1,5 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { currentWeek, formatWeek } from "@/lib/week";
 import { Nav } from "./nav";
 
 const pathname = vi.hoisted(() => vi.fn(() => "/"));
@@ -16,14 +15,8 @@ describe("Nav", () => {
     render(<Nav />);
 
     expect(screen.getByRole("link", { name: "Boka" })).toHaveAttribute("href", "/");
-    expect(screen.getByRole("link", { name: "Vecka" })).toHaveAttribute(
-      "href",
-      `/week/${formatWeek(currentWeek())}`,
-    );
-    expect(screen.getByRole("link", { name: "År" })).toHaveAttribute(
-      "href",
-      `/year/${currentWeek().year}`,
-    );
+    expect(screen.getByRole("link", { name: "Vecka" })).toHaveAttribute("href", "/week");
+    expect(screen.getByRole("link", { name: "År" })).toHaveAttribute("href", "/year");
     expect(screen.getByRole("link", { name: "Fakturor" })).toHaveAttribute("href", "/invoices");
     expect(screen.getByRole("link", { name: "Inställningar" })).toHaveAttribute(
       "href",

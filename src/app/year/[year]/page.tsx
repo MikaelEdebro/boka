@@ -9,6 +9,8 @@ const YEAR_RE = /^\d{4}$/;
 
 const DAY_TYPE_COLUMNS = ["vacation", "vab", "sick", "parental", "holiday"] as const;
 
+export const instant = false;
+
 export default async function YearPage({
   params,
 }: {

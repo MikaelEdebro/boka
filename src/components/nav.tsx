@@ -2,20 +2,18 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { currentWeek, formatWeek } from "@/lib/week";
 
 type NavLink = { href: string; label: string; isActive: (pathname: string) => boolean };
 
 function navLinks(): NavLink[] {
-  const week = currentWeek();
   return [
     {
-      href: `/week/${formatWeek(week)}`,
+      href: "/week",
       label: "Vecka",
       isActive: (p) => p.startsWith("/week"),
     },
     {
-      href: `/year/${week.year}`,
+      href: "/year",
       label: "År",
       isActive: (p) => p.startsWith("/year"),
     },

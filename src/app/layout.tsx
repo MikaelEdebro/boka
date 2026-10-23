@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist_Mono, Inter } from "next/font/google";
+import { Suspense } from "react";
 import { Nav } from "@/components/nav";
 import "./globals.css";
 
@@ -15,7 +16,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="sv" className={`h-full antialiased ${inter.variable} ${geistMono.variable}`}>
       <body className="min-h-full flex flex-col font-sans">
-        <Nav />
+        <Suspense>
+          <Nav />
+        </Suspense>
         <main className="mx-auto w-full max-w-3xl flex-1 p-6">{children}</main>
       </body>
     </html>
