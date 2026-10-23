@@ -35,6 +35,27 @@ describe("SettingsForm", () => {
     expect(error).not.toHaveBeenCalled();
   });
 
+  it("does not toast on mount", () => {
+    render(<SettingsForm settings={settings} />);
+
+    expect(success).not.toHaveBeenCalled();
+    expect(error).not.toHaveBeenCalled();
+  });
+
+  it("toasts once per submit even when the result is the same object", async () => {
+    saveSettings.mockResolvedValue({ ok: true });
+    const user = userEvent.setup();
+
+    render(<SettingsForm settings={settings} />);
+    const button = screen.getByRole("button", { name: "Spara" });
+
+    await user.click(button);
+    await waitFor(() => expect(success).toHaveBeenCalledTimes(1));
+
+    await user.click(button);
+    await waitFor(() => expect(success).toHaveBeenCalledTimes(2));
+  });
+
   it("toasts the error reason when the action fails", async () => {
     saveSettings.mockResolvedValue({ ok: false, error: "Ogiltigt timpris" });
     const user = userEvent.setup();

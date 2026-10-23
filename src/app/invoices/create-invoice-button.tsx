@@ -1,9 +1,7 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
-import { toast } from "sonner";
 import { SubmitButton } from "@/components/submit-button";
-import type { ActionResult } from "@/lib/actionResult";
+import { useActionWithToast } from "@/lib/useActionWithToast";
 import { createInvoiceForMonth } from "./actions";
 
 export function CreateInvoiceButton({
@@ -13,16 +11,9 @@ export function CreateInvoiceButton({
   yearMonth: string;
   disabled: boolean;
 }) {
-  const [state, formAction] = useActionState<ActionResult | null>(
-    () => createInvoiceForMonth(yearMonth),
-    null,
-  );
-
-  useEffect(() => {
-    if (!state) return;
-    if (state.ok) toast.success("Faktura skapad i Bokio");
-    else toast.error(state.error);
-  }, [state]);
+  const [, formAction] = useActionWithToast(() => createInvoiceForMonth(yearMonth), {
+    success: "Faktura skapad i Bokio",
+  });
 
   return (
     <form action={formAction}>

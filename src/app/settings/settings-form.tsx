@@ -1,21 +1,16 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
-import { toast } from "sonner";
 import { SubmitButton } from "@/components/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { AppSettings } from "@/db/settings";
+import { useActionWithToast } from "@/lib/useActionWithToast";
 import { saveSettings } from "./actions";
 
 export function SettingsForm({ settings }: { settings: AppSettings }) {
-  const [state, formAction] = useActionState(saveSettings, null);
-
-  useEffect(() => {
-    if (!state) return;
-    if (state.ok) toast.success("Inställningar sparade");
-    else toast.error(state.error);
-  }, [state]);
+  const [, formAction] = useActionWithToast(saveSettings, {
+    success: "Inställningar sparade",
+  });
 
   return (
     <form action={formAction} className="space-y-5">
