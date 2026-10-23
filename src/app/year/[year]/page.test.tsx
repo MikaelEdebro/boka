@@ -97,6 +97,8 @@ describe("YearPage", () => {
     const oktober = screen.getByRole("row", { name: /Oktober/ });
     expect(within(oktober).getByTitle("Kund A: 160 h fakturerat 2026-10-02")).toBeInTheDocument();
 
+    expect(within(oktober).getByLabelText("Fakturerad: Kund A")).toHaveClass("text-success");
+
     const januari = screen.getByRole("row", { name: /Januari/ });
     expect(within(januari).queryByTitle(/fakturerat/)).not.toBeInTheDocument();
   });
@@ -130,10 +132,13 @@ describe("YearPage", () => {
     render(await YearPage({ params: Promise.resolve({ year: "2026" }) }));
 
     const oktober = screen.getByRole("row", { name: /Oktober/ });
-    expect(oktober).toHaveClass("bg-muted/50");
+    expect(oktober).toHaveClass("bg-highlight");
+
+    expect(within(oktober).getByText("Oktober")).toHaveClass("text-highlight-foreground");
 
     const januari = screen.getByRole("row", { name: /Januari/ });
-    expect(januari).not.toHaveClass("bg-muted/50");
+    expect(januari).not.toHaveClass("bg-highlight");
+    expect(within(januari).getByText("Januari")).not.toHaveClass("text-highlight-foreground");
   });
 
   it("does not highlight any month when showing a different year", async () => {
@@ -143,7 +148,7 @@ describe("YearPage", () => {
     render(await YearPage({ params: Promise.resolve({ year: "2025" }) }));
 
     const oktober = screen.getByRole("row", { name: /Oktober/ });
-    expect(oktober).not.toHaveClass("bg-muted/50");
+    expect(oktober).not.toHaveClass("bg-highlight");
   });
 
   it("links to the current year when showing another year", async () => {

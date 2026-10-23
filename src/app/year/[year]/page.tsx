@@ -91,9 +91,9 @@ export default async function YearPage({
             return (
               <tr
                 key={month.month}
-                className={cn("border-b border-border", isCurrent && "bg-muted/50")}
+                className={cn("border-b border-border", isCurrent && "bg-highlight")}
               >
-                <td className={cn("py-2 pr-4", isCurrent && "font-medium")}>
+                <td className={cn("py-2 pr-4", isCurrent && "font-medium text-highlight-foreground")}>
                   {MONTH_LABELS[month.month - 1]}
                 </td>
                 <td className="py-2 pr-4 text-right tabular-nums">{month.workHours}</td>
@@ -104,7 +104,8 @@ export default async function YearPage({
                       title={`${invoice.clientName}: ${invoice.hours} h fakturerat ${invoice.periodStart}`}
                     >
                       <Check
-                        className="inline size-4 text-muted-foreground"
+                        className="inline size-4 text-success"
+                        strokeWidth={2.5}
                         aria-label={`Fakturerad: ${invoice.clientName}`}
                       />
                     </span>
