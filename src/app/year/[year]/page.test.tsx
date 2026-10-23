@@ -1,12 +1,20 @@
 import { render, screen, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getDb } from "@/db/client";
 import { upsertDayEntry } from "@/db/dayEntries";
-import { dayEntries } from "@/db/schema";
+import { insertInvoice } from "@/db/invoices";
+import { dayEntries, invoices } from "@/db/schema";
 import YearPage from "./page";
+
+vi.mock("next/server", () => ({ connection: vi.fn(async () => {}) }));
 
 beforeEach(() => {
   getDb().delete(dayEntries).run();
+  getDb().delete(invoices).run();
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe("YearPage", () => {
@@ -56,6 +64,53 @@ describe("YearPage", () => {
     expect(within(list).getByText(/2026-03-10/)).toBeInTheDocument();
     expect(within(list).getByText(/Otto/)).toBeInTheDocument();
     expect(within(list).getByText(/2026-03-11/)).toBeInTheDocument();
+  });
+
+  it("marks invoiced months with a check and the invoiced hours as a title", async () => {
+    const db = getDb();
+    insertInvoice(
+      db,
+      { bokioInvoiceId: "b1", periodStart: "2026-10-02", periodEnd: "2026-10-31", hours: 160 },
+      "t",
+    );
+
+    render(await YearPage({ params: Promise.resolve({ year: "2026" }) }));
+
+    const oktober = screen.getByRole("row", { name: /Oktober/ });
+    expect(within(oktober).getByTitle("160 h fakturerat 2026-10-02")).toBeInTheDocument();
+
+    const januari = screen.getByRole("row", { name: /Januari/ });
+    expect(within(januari).queryByTitle(/fakturerat/)).not.toBeInTheDocument();
+  });
+
+  it("highlights the current month's row when showing the current year", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-15T12:00:00Z"));
+
+    render(await YearPage({ params: Promise.resolve({ year: "2026" }) }));
+
+    const oktober = screen.getByRole("row", { name: /Oktober/ });
+    expect(oktober).toHaveClass("bg-muted/50");
+
+    const januari = screen.getByRole("row", { name: /Januari/ });
+    expect(januari).not.toHaveClass("bg-muted/50");
+  });
+
+  it("does not highlight any month when showing a different year", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-15T12:00:00Z"));
+
+    render(await YearPage({ params: Promise.resolve({ year: "2025" }) }));
+
+    const oktober = screen.getByRole("row", { name: /Oktober/ });
+    expect(oktober).not.toHaveClass("bg-muted/50");
+  });
+
+  it("renders the totals row in semibold", async () => {
+    render(await YearPage({ params: Promise.resolve({ year: "2026" }) }));
+
+    const totals = screen.getByRole("row", { name: /Totalt/ });
+    expect(totals).toHaveClass("font-semibold");
   });
 
   it("links to the previous and next year", async () => {

@@ -1,9 +1,12 @@
+import { Check } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { connection } from "next/server";
 import { getDb } from "@/db/client";
 import { getYearEntries } from "@/db/dayEntries";
+import { listInvoices } from "@/db/invoices";
 import { DAY_TYPE_LABELS, MONTH_LABELS } from "@/lib/labels";
-import { summarizeYear, vabDaysByMonth } from "@/lib/summary";
+import { invoicedMonths, summarizeYear, vabDaysByMonth } from "@/lib/summary";
 
 const YEAR_RE = /^\d{4}$/;
 
@@ -20,9 +23,15 @@ export default async function YearPage({
   if (!YEAR_RE.test(yearParam)) notFound();
   const year = Number(yearParam);
 
-  const entries = getYearEntries(getDb(), year);
+  await connection();
+  const now = new Date();
+  const currentMonth = now.getFullYear() === year ? now.getMonth() + 1 : null;
+
+  const db = getDb();
+  const entries = getYearEntries(db, year);
   const summary = summarizeYear(year, entries);
   const vabMonths = vabDaysByMonth(year, entries);
+  const invoiced = invoicedMonths(year, listInvoices(db));
 
   return (
     <>
@@ -47,6 +56,7 @@ export default async function YearPage({
           <tr className="border-b border-border text-left text-muted-foreground">
             <th className="py-2 pr-4 font-medium">Månad</th>
             <th className="py-2 pr-4 text-right font-medium">Arbetstimmar</th>
+            <th className="py-2 pr-4 text-center font-medium">Fakturerad</th>
             {DAY_TYPE_COLUMNS.map((key) => (
               <th key={key} className="py-2 pr-4 text-right font-medium">
                 {DAY_TYPE_LABELS[key]}
@@ -55,22 +65,42 @@ export default async function YearPage({
           </tr>
         </thead>
         <tbody>
-          {summary.months.map((month) => (
-            <tr key={month.month} className="border-b border-border">
-              <td className="py-2 pr-4">{MONTH_LABELS[month.month - 1]}</td>
+          {summary.months.map((month) => {
+            const invoice = invoiced.get(month.month);
+            const isCurrent = month.month === currentMonth;
+            return (
+            <tr
+              key={month.month}
+              className={`border-b border-border${isCurrent ? " bg-muted/50" : ""}`}
+            >
+              <td className={`py-2 pr-4${isCurrent ? " font-medium" : ""}`}>
+                {MONTH_LABELS[month.month - 1]}
+              </td>
               <td className="py-2 pr-4 text-right tabular-nums">{month.workHours}</td>
+              <td className="py-2 pr-4 text-center">
+                {invoice ? (
+                  <span title={`${invoice.hours} h fakturerat ${invoice.periodStart}`}>
+                    <Check
+                      className="inline size-4 text-muted-foreground"
+                      aria-label="Fakturerad"
+                    />
+                  </span>
+                ) : null}
+              </td>
               {DAY_TYPE_COLUMNS.map((key) => (
                 <td key={key} className="py-2 pr-4 text-right tabular-nums">
                   {month[key]}
                 </td>
               ))}
             </tr>
-          ))}
+            );
+          })}
         </tbody>
         <tfoot>
-          <tr className="border-t-2 border-border font-medium">
+          <tr className="border-t-2 border-border font-semibold">
             <td className="py-2 pr-4">Totalt</td>
             <td className="py-2 pr-4 text-right tabular-nums">{summary.totals.workHours}</td>
+            <td className="py-2 pr-4" />
             {DAY_TYPE_COLUMNS.map((key) => (
               <td key={key} className="py-2 pr-4 text-right tabular-nums">
                 {summary.totals[key]}

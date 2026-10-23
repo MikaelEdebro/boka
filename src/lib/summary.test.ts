@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { summarizeYear, vabDaysByMonth, type SummaryEntry } from "@/lib/summary";
+import { invoicedMonths, summarizeYear, vabDaysByMonth, type SummaryEntry } from "@/lib/summary";
 
 describe("summarizeYear", () => {
   it("returns 12 months even with no entries, all zero", () => {
@@ -85,5 +85,20 @@ describe("vabDaysByMonth", () => {
         ],
       },
     ]);
+  });
+});
+
+describe("invoicedMonths", () => {
+  it("maps each month of the year to its invoiced hours and earliest period start", () => {
+    const result = invoicedMonths(2026, [
+      { periodStart: "2026-10-02", hours: 160 },
+      { periodStart: "2026-10-20", hours: 8 },
+      { periodStart: "2026-03-01", hours: 120 },
+      { periodStart: "2025-12-01", hours: 100 },
+    ]);
+
+    expect(result.get(10)).toEqual({ hours: 168, periodStart: "2026-10-02" });
+    expect(result.get(3)).toEqual({ hours: 120, periodStart: "2026-03-01" });
+    expect(result.has(12)).toBe(false);
   });
 });
