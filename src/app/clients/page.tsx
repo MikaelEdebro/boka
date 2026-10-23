@@ -26,9 +26,8 @@ export default async function ClientsPage() {
   const clients = listClients(db);
   const recordCounts = countClientRecords(db);
   const bokioCustomers = await loadBokioCustomerList();
-  const bokioNames = new Map(
-    bokioCustomers.ok ? bokioCustomers.customers.map((customer) => [customer.id, customer.name]) : [],
-  );
+  const bokioCustomerEntries = bokioCustomers.ok ? bokioCustomers.customers : [];
+  const bokioNames = new Map(bokioCustomerEntries.map((customer) => [customer.id, customer.name]));
 
   return (
     <>

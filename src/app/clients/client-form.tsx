@@ -104,11 +104,10 @@ export function ClientForm({
             </option>
           ))}
         </select>
-        {bokioCustomers.ok ? (
-          bokioCustomerId && (
-            <p className="font-mono text-xs text-muted-foreground">{bokioCustomerId}</p>
-          )
-        ) : (
+        {bokioCustomers.ok && bokioCustomerId && (
+          <p className="font-mono text-xs text-muted-foreground">{bokioCustomerId}</p>
+        )}
+        {!bokioCustomers.ok && (
           <div className="text-sm text-destructive">
             <p>Kunde inte hämta kunder från Bokio</p>
             <p className="text-xs">{bokioCustomers.error}</p>
