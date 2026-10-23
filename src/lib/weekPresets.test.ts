@@ -25,16 +25,22 @@ const holidayWeek = [
 ];
 
 describe("weekPresetEntries", () => {
-  it("fills Monday–Friday with work 8h and clears the weekend", () => {
-    const entries = weekPresetEntries(plainWeek, "work");
+  it("fills Monday–Friday with work 8h billed to the default client and clears the weekend", () => {
+    const entries = weekPresetEntries(plainWeek, "work", 7);
 
     expect(entries.slice(0, 5)).toEqual(
-      plainWeek.slice(0, 5).map((date) => ({ date, type: "work", hours: 8 })),
+      plainWeek.slice(0, 5).map((date) => ({ date, type: "work", hours: 8, clientId: 7 })),
     );
     expect(entries.slice(5)).toEqual([
       { date: "2026-10-24", type: "work", hours: "" },
       { date: "2026-10-25", type: "work", hours: "" },
     ]);
+  });
+
+  it("leaves the work client null when there is no default client", () => {
+    const entries = weekPresetEntries(plainWeek, "work");
+
+    expect(entries[0]).toEqual({ date: "2026-10-19", type: "work", hours: 8, clientId: null });
   });
 
   it("fills Monday–Friday with vacation and no hours", () => {
@@ -83,7 +89,7 @@ describe("weekPresetEntries", () => {
 
     expect(entries[3]).toEqual({ date: "2026-01-01", type: "holiday", hours: 0 });
     // The other weekdays still get the preset value.
-    expect(entries[0]).toEqual({ date: "2025-12-29", type: "work", hours: 8 });
+    expect(entries[0]).toEqual({ date: "2025-12-29", type: "work", hours: 8, clientId: null });
   });
 
   it("clears a red day too for the clear preset", () => {

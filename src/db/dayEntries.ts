@@ -7,6 +7,7 @@ export type DayEntryValues = {
   type: DayType;
   hours: number | null;
   note: string | null;
+  clientId: number | null;
 };
 
 export function upsertDayEntry(
@@ -18,7 +19,13 @@ export function upsertDayEntry(
     .values({ ...values, updatedAt })
     .onConflictDoUpdate({
       target: dayEntries.date,
-      set: { type: values.type, hours: values.hours, note: values.note, updatedAt },
+      set: {
+        type: values.type,
+        hours: values.hours,
+        note: values.note,
+        clientId: values.clientId,
+        updatedAt,
+      },
     })
     .run();
 }

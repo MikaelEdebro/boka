@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ComponentProps } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -23,8 +23,8 @@ vi.mock("sonner", () => ({
 import { WeekGrid, type WeekGridRow } from "./week-grid";
 
 const rows: WeekGridRow[] = [
-  { date: "2026-10-19", type: "work", hours: 8, note: null },
-  { date: "2026-10-20", type: "work", hours: null, note: null },
+  { date: "2026-10-19", type: "work", hours: 8, note: null, clientId: 1 },
+  { date: "2026-10-20", type: "work", hours: null, note: null, clientId: 1 },
 ];
 
 function renderGrid(props: Partial<ComponentProps<typeof WeekGrid>> = {}) {
@@ -35,6 +35,8 @@ function renderGrid(props: Partial<ComponentProps<typeof WeekGrid>> = {}) {
       submitted={false}
       submittedAt={null}
       vabNotes={[]}
+      clients={[{ id: 1, name: "Acme" }]}
+      defaultClientId={1}
       {...props}
     />,
   );
@@ -93,6 +95,7 @@ describe("WeekGrid", () => {
       type: "vacation",
       hours: "",
       note: "",
+      clientId: "1",
     });
     expect(await screen.findByLabelText("Sparar")).toBeInTheDocument();
 
@@ -139,6 +142,7 @@ describe("WeekGrid", () => {
       type: "work",
       hours: "4",
       note: "",
+      clientId: "1",
     });
     expect(screen.getByText("12")).toBeInTheDocument();
   });
@@ -180,6 +184,7 @@ describe("WeekGrid", () => {
       type: "vab",
       hours: "",
       note: "Stina",
+      clientId: "1",
     });
   });
 
@@ -281,5 +286,90 @@ describe("WeekGrid", () => {
     fireEvent.click(screen.getByRole("button", { name: "Öppna igen" }));
 
     expect(reopenWeek).toHaveBeenCalledWith("2026-W43");
+  });
+
+  const twoClients = [
+    { id: 1, name: "Acme" },
+    { id: 2, name: "Globex" },
+  ];
+
+  it("hides the Kund column when there is only one client", () => {
+    const { container } = renderGrid();
+
+    expect(screen.queryByText("Kund")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Kund 2026-10-19")).not.toBeInTheDocument();
+    // The six-column layout from #20 is unchanged when the column is hidden.
+    expect(container.querySelectorAll("thead th")).toHaveLength(6);
+    for (const bodyRow of container.querySelectorAll("tbody tr")) {
+      expect(bodyRow.querySelectorAll("td")).toHaveLength(6);
+    }
+  });
+
+  it("shows a client select on each work row when there are several clients", () => {
+    const { container } = renderGrid({ clients: twoClients });
+
+    expect(screen.getByText("Kund")).toBeInTheDocument();
+    expect(screen.getByLabelText("Kund 2026-10-19")).toHaveValue("1");
+    // Seven columns now: the Kund column slots in after Typ.
+    expect(container.querySelectorAll("colgroup col")).toHaveLength(7);
+    expect(container.querySelectorAll("thead th")).toHaveLength(7);
+  });
+
+  it("keeps the client select out of the tab order", () => {
+    renderGrid({ clients: twoClients });
+
+    expect(screen.getByLabelText("Kund 2026-10-19")).toHaveAttribute("tabindex", "-1");
+  });
+
+  it("hides the client select on non-work rows", () => {
+    renderGrid({ clients: twoClients });
+
+    fireEvent.change(screen.getByLabelText("Typ 2026-10-20"), {
+      target: { value: "vacation" },
+    });
+
+    expect(screen.queryByLabelText("Kund 2026-10-20")).not.toBeInTheDocument();
+  });
+
+  it("saves the chosen client when it changes", () => {
+    renderGrid({ clients: twoClients });
+
+    fireEvent.change(screen.getByLabelText("Kund 2026-10-20"), {
+      target: { value: "2" },
+    });
+
+    expect(saveDay).toHaveBeenCalledWith({
+      date: "2026-10-20",
+      type: "work",
+      hours: "",
+      note: "",
+      clientId: "2",
+    });
+  });
+
+  it("shows a per-client breakdown under the total when several clients have hours", () => {
+    const { container } = renderGrid({
+      clients: twoClients,
+      rows: [
+        { date: "2026-10-19", type: "work", hours: 8, note: null, clientId: 1 },
+        { date: "2026-10-20", type: "work", hours: 4, note: null, clientId: 2 },
+      ],
+    });
+
+    // Scope to the footer: client names also appear as <option>s in the selects.
+    const tfoot = within(container.querySelector("tfoot") as HTMLElement);
+    expect(tfoot.getByText("12")).toBeInTheDocument();
+    expect(tfoot.getByText("Acme")).toBeInTheDocument();
+    expect(tfoot.getByText("Globex")).toBeInTheDocument();
+    expect(tfoot.getByText("8")).toBeInTheDocument();
+    expect(tfoot.getByText("4")).toBeInTheDocument();
+  });
+
+  it("omits the breakdown when only one client has hours", () => {
+    const { container } = renderGrid({ clients: twoClients });
+
+    // Both work rows bill the same client, so there is nothing to break down.
+    const tfoot = within(container.querySelector("tfoot") as HTMLElement);
+    expect(tfoot.queryByText("Acme")).not.toBeInTheDocument();
   });
 });

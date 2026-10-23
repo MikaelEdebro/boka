@@ -20,9 +20,9 @@ afterEach(() => {
 describe("YearPage", () => {
   it("renders a row per month with hours and day-type counts and a totals row", async () => {
     const db = getDb();
-    upsertDayEntry(db, { date: "2026-01-05", type: "work", hours: 8, note: null }, "t");
-    upsertDayEntry(db, { date: "2026-01-06", type: "work", hours: 6, note: null }, "t");
-    upsertDayEntry(db, { date: "2026-02-10", type: "vacation", hours: null, note: null }, "t");
+    upsertDayEntry(db, { date: "2026-01-05", type: "work", hours: 8, note: null, clientId: null }, "t");
+    upsertDayEntry(db, { date: "2026-01-06", type: "work", hours: 6, note: null, clientId: null }, "t");
+    upsertDayEntry(db, { date: "2026-02-10", type: "vacation", hours: null, note: null, clientId: null }, "t");
 
     render(await YearPage({ params: Promise.resolve({ year: "2026" }) }));
 
@@ -38,7 +38,7 @@ describe("YearPage", () => {
 
   it("counts leave days in a Ledig column", async () => {
     const db = getDb();
-    upsertDayEntry(db, { date: "2026-01-12", type: "leave", hours: null, note: null }, "t");
+    upsertDayEntry(db, { date: "2026-01-12", type: "leave", hours: null, note: null, clientId: null }, "t");
 
     render(await YearPage({ params: Promise.resolve({ year: "2026" }) }));
 
@@ -49,9 +49,9 @@ describe("YearPage", () => {
 
   it("lists every VAB day of the year with date and note, grouped by month", async () => {
     const db = getDb();
-    upsertDayEntry(db, { date: "2026-01-05", type: "vab", hours: null, note: "Stina" }, "t");
-    upsertDayEntry(db, { date: "2026-03-10", type: "vab", hours: null, note: "Otto" }, "t");
-    upsertDayEntry(db, { date: "2026-03-11", type: "vab", hours: null, note: null }, "t");
+    upsertDayEntry(db, { date: "2026-01-05", type: "vab", hours: null, note: "Stina", clientId: null }, "t");
+    upsertDayEntry(db, { date: "2026-03-10", type: "vab", hours: null, note: "Otto", clientId: null }, "t");
+    upsertDayEntry(db, { date: "2026-03-11", type: "vab", hours: null, note: null, clientId: null }, "t");
 
     render(await YearPage({ params: Promise.resolve({ year: "2026" }) }));
 

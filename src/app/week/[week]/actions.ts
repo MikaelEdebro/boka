@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getDb, type Db } from "@/db/client";
+import { getDefaultClient } from "@/db/clients";
 import { deleteDayEntry, upsertDayEntry } from "@/db/dayEntries";
 import { isWeekSubmitted, reopenWeekReport, submitWeekReport } from "@/db/weekReports";
 import { parseDay, type DayInput, type ParsedDay } from "@/lib/dayEntry";
@@ -66,7 +67,8 @@ export async function applyWeekPreset(
   }
 
   const dates = weekDays(week).map(formatDate);
-  const entries = weekPresetEntries(dates, preset);
+  const defaultClientId = getDefaultClient(db)?.id ?? null;
+  const entries = weekPresetEntries(dates, preset, defaultClientId);
 
   const writeAll = db.$client.transaction(() => {
     for (const entry of entries) {

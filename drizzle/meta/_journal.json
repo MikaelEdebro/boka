@@ -15,6 +15,13 @@
       "when": 1792745137729,
       "tag": "0001_minor_alice",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1792745936658,
+      "tag": "0002_lovely_brother_voodoo",
+      "breakpoints": true
     }
   ]
 }

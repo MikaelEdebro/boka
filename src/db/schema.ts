@@ -8,6 +8,7 @@ export const dayEntries = sqliteTable("day_entries", {
   type: text("type", { enum: DAY_TYPES }).notNull(),
   hours: real("hours"),
   note: text("note"),
+  clientId: integer("client_id").references(() => clients.id),
   updatedAt: text("updated_at").notNull(),
 });
 

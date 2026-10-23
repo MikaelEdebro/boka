@@ -2,35 +2,44 @@ import { describe, expect, it } from "vitest";
 import { parseDay } from "@/lib/dayEntry";
 
 describe("parseDay", () => {
-  it("parses a work day with hours into an upsert", () => {
-    expect(parseDay({ date: "2026-10-19", type: "work", hours: "8" })).toEqual({
+  it("parses a work day with hours and a client into an upsert", () => {
+    expect(parseDay({ date: "2026-10-19", type: "work", hours: "8", clientId: "3" })).toEqual({
       op: "upsert",
       date: "2026-10-19",
       type: "work",
       hours: 8,
       note: null,
+      clientId: 3,
     });
   });
 
   it("accepts half-hour steps and trims the note", () => {
     expect(
-      parseDay({ date: "2026-10-19", type: "work", hours: "7.5", note: "  möte  " }),
+      parseDay({ date: "2026-10-19", type: "work", hours: "7.5", note: "  möte  ", clientId: "2" }),
     ).toEqual({
       op: "upsert",
       date: "2026-10-19",
       type: "work",
       hours: 7.5,
       note: "möte",
+      clientId: 2,
     });
   });
 
-  it("allows non-work days without hours", () => {
-    expect(parseDay({ date: "2026-10-20", type: "vacation", hours: "" })).toEqual({
+  it("requires a client on a work day with hours", () => {
+    expect(() => parseDay({ date: "2026-10-19", type: "work", hours: "8" })).toThrow();
+  });
+
+  it("allows non-work days without hours and nulls any client", () => {
+    expect(
+      parseDay({ date: "2026-10-20", type: "vacation", hours: "", clientId: "5" }),
+    ).toEqual({
       op: "upsert",
       date: "2026-10-20",
       type: "vacation",
       hours: null,
       note: null,
+      clientId: null,
     });
   });
 
@@ -41,6 +50,7 @@ describe("parseDay", () => {
       type: "leave",
       hours: null,
       note: null,
+      clientId: null,
     });
   });
 

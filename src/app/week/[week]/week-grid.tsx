@@ -15,14 +15,17 @@ import {
 } from "@/lib/weekPresets";
 import { applyWeekPreset, reopenWeek, saveDay, submitWeek } from "./actions";
 
-type RowState = { type: DayType; hours: string; note: string };
+type RowState = { type: DayType; hours: string; note: string; clientId: string };
 type SaveStatus = "idle" | "saving";
+
+export type ClientOption = { id: number; name: string };
 
 export type WeekGridRow = {
   date: string;
   type: DayType;
   hours: number | null;
   note: string | null;
+  clientId: number | null;
 };
 
 function toState(row: WeekGridRow): RowState {
@@ -30,6 +33,7 @@ function toState(row: WeekGridRow): RowState {
     type: row.type,
     hours: row.hours == null ? "" : String(row.hours),
     note: row.note ?? "",
+    clientId: row.clientId == null ? "" : String(row.clientId),
   };
 }
 
@@ -39,12 +43,13 @@ function workHours(state: RowState): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function inputToState(input: DayInput): RowState {
-  const { hours } = input;
+function inputToState(input: DayInput, defaultClientId: string): RowState {
+  const { hours, clientId } = input;
   return {
     type: input.type,
     hours: hours === "" || hours == null ? "" : String(hours),
     note: "",
+    clientId: clientId == null ? defaultClientId : String(clientId),
   };
 }
 
@@ -54,17 +59,31 @@ export type WeekGridProps = {
   submitted: boolean;
   submittedAt: string | null;
   vabNotes: string[];
+  clients: ClientOption[];
+  defaultClientId: number | null;
 };
 
 const VAB_NOTES_LIST_ID = "vab-notes";
 
-export function WeekGrid({ week, rows, submitted, submittedAt, vabNotes }: WeekGridProps) {
+export function WeekGrid({
+  week,
+  rows,
+  submitted,
+  submittedAt,
+  vabNotes,
+  clients,
+  defaultClientId,
+}: WeekGridProps) {
   const [states, setStates] = useState<Record<string, RowState>>(() =>
     Object.fromEntries(rows.map((row) => [row.date, toState(row)])),
   );
   const [statuses, setStatuses] = useState<Record<string, SaveStatus>>({});
   const [pending, startTransition] = useTransition();
   const hourInputs = useRef<(HTMLInputElement | null)[]>([]);
+
+  // The Kund column only earns its space once there is a choice to make.
+  const showClients = clients.length > 1;
+  const defaultClientValue = defaultClientId == null ? "" : String(defaultClientId);
 
   function focusNextHours(index: number, current: HTMLInputElement) {
     const next = hourInputs.current[index + 1];
@@ -75,14 +94,27 @@ export function WeekGrid({ week, rows, submitted, submittedAt, vabNotes }: WeekG
 
   const total = rows.reduce((sum, row) => sum + workHours(states[row.date]), 0);
 
+  const hoursByClient = new Map<string, number>();
+  for (const row of rows) {
+    const state = states[row.date];
+    const hours = workHours(state);
+    if (hours <= 0) continue;
+    hoursByClient.set(state.clientId, (hoursByClient.get(state.clientId) ?? 0) + hours);
+  }
+  const clientNameById = new Map(clients.map((client) => [String(client.id), client.name]));
+  const breakdown = [...hoursByClient.entries()];
+  const showBreakdown = breakdown.length > 1;
+  const labelColSpan = showClients ? 4 : 3;
+
   function applyPreset(preset: WeekPreset) {
     const entries = weekPresetEntries(
       rows.map((row) => row.date),
       preset,
+      defaultClientId,
     );
     setStates((prev) => {
       const next = { ...prev };
-      for (const entry of entries) next[entry.date] = inputToState(entry);
+      for (const entry of entries) next[entry.date] = inputToState(entry, defaultClientValue);
       return next;
     });
     setStatuses({});
@@ -99,7 +131,13 @@ export function WeekGrid({ week, rows, submitted, submittedAt, vabNotes }: WeekG
     setStatuses((prev) => ({ ...prev, [date]: "saving" }));
     startTransition(async () => {
       try {
-        await saveDay({ date, type: next.type, hours: next.hours, note: next.note });
+        await saveDay({
+          date,
+          type: next.type,
+          hours: next.hours,
+          note: next.note,
+          clientId: next.clientId,
+        });
       } catch {
         toast.error("Kunde inte spara dagen");
       } finally {
@@ -147,6 +185,7 @@ export function WeekGrid({ week, rows, submitted, submittedAt, vabNotes }: WeekG
           <col className="w-24" />
           <col className="w-28" />
           <col className="w-40" />
+          {showClients && <col className="w-40" />}
           <col className="w-24" />
           <col className="w-40" />
           <col className="w-20" />
@@ -156,6 +195,7 @@ export function WeekGrid({ week, rows, submitted, submittedAt, vabNotes }: WeekG
             <th className="py-2 font-medium">Dag</th>
             <th className="py-2 font-medium">Datum</th>
             <th className="py-2 font-medium">Typ</th>
+            {showClients && <th className="py-2 font-medium">Kund</th>}
             <th className="py-2 font-medium">Timmar</th>
             <th className="py-2 font-medium">Barn</th>
             <th className="py-2 font-medium"></th>
@@ -187,6 +227,28 @@ export function WeekGrid({ week, rows, submitted, submittedAt, vabNotes }: WeekG
                     ))}
                   </select>
                 </td>
+                {showClients && (
+                  <td className="py-2">
+                    {state.type === "work" && (
+                      <select
+                        aria-label={`Kund ${row.date}`}
+                        value={state.clientId}
+                        disabled={submitted}
+                        tabIndex={-1}
+                        onChange={(event) =>
+                          update(row.date, { clientId: event.target.value })
+                        }
+                        className="w-36 rounded-md border bg-transparent px-2 py-1 disabled:opacity-50"
+                      >
+                        {clients.map((client) => (
+                          <option key={client.id} value={String(client.id)}>
+                            {client.name}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </td>
+                )}
                 <td className="py-2">
                   <input
                     ref={(node) => {
@@ -240,12 +302,22 @@ export function WeekGrid({ week, rows, submitted, submittedAt, vabNotes }: WeekG
         </tbody>
         <tfoot>
           <tr className="font-medium">
-            <td className="py-2" colSpan={3}>
+            <td className="py-2" colSpan={labelColSpan}>
               Summa arbetstimmar
             </td>
             <td className="py-2 tabular-nums">{total}</td>
             <td className="py-2" colSpan={2}></td>
           </tr>
+          {showBreakdown &&
+            breakdown.map(([clientId, hours]) => (
+              <tr key={clientId} className="text-muted-foreground">
+                <td className="py-1 pl-4" colSpan={labelColSpan}>
+                  {clientNameById.get(clientId) ?? "Okänd kund"}
+                </td>
+                <td className="py-1 tabular-nums">{hours}</td>
+                <td className="py-1" colSpan={2}></td>
+              </tr>
+            ))}
         </tfoot>
       </table>
       <WeekSubmit week={week} submitted={submitted} submittedAt={submittedAt} />

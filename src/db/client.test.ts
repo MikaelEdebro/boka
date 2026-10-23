@@ -10,7 +10,14 @@ describe("db", () => {
       .run();
     const rows = db.select().from(dayEntries).all();
     expect(rows).toEqual([
-      { date: "2026-10-19", type: "work", hours: 8, note: null, updatedAt: "2026-10-19T08:00:00Z" },
+      {
+        date: "2026-10-19",
+        type: "work",
+        hours: 8,
+        note: null,
+        clientId: null,
+        updatedAt: "2026-10-19T08:00:00Z",
+      },
     ]);
   });
 });

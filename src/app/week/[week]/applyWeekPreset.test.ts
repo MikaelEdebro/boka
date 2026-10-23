@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { dayEntries } from "@/db/schema";
+import { upsertClient } from "@/db/clients";
 import { upsertDayEntry } from "@/db/dayEntries";
 import { submitWeekReport } from "@/db/weekReports";
 import { testDb } from "@/test/db";
@@ -29,17 +30,25 @@ function rowsByDate() {
 }
 
 describe("applyWeekPreset", () => {
+  let defaultClientId: number;
+
   beforeEach(() => {
     db = testDb();
     revalidatePath.mockReset();
+    defaultClientId = upsertClient(db, {
+      name: "Standard",
+      hourlyRate: 1000,
+      bokioCustomerId: "c1",
+      invoiceItemName: "Programmering",
+    }).id;
   });
 
-  it("writes work 8h Mon–Fri and clears the weekend for 2026-W43", async () => {
+  it("writes work 8h Mon–Fri billed to the default client and clears the weekend", async () => {
     await applyWeekPreset("2026-W43", "work");
 
     const rows = rowsByDate();
     for (const date of ["2026-10-19", "2026-10-20", "2026-10-21", "2026-10-22", "2026-10-23"]) {
-      expect(rows[date]).toMatchObject({ type: "work", hours: 8 });
+      expect(rows[date]).toMatchObject({ type: "work", hours: 8, clientId: defaultClientId });
     }
     expect(rows["2026-10-24"]).toBeUndefined();
     expect(rows["2026-10-25"]).toBeUndefined();
@@ -47,8 +56,8 @@ describe("applyWeekPreset", () => {
   });
 
   it("replaces existing entries and clears days the preset empties", async () => {
-    upsertDayEntry(db, { date: "2026-10-24", type: "work", hours: 5, note: null }, "t");
-    upsertDayEntry(db, { date: "2026-10-19", type: "sick", hours: null, note: null }, "t");
+    upsertDayEntry(db, { date: "2026-10-24", type: "work", hours: 5, note: null, clientId: null }, "t");
+    upsertDayEntry(db, { date: "2026-10-19", type: "sick", hours: null, note: null, clientId: null }, "t");
 
     await applyWeekPreset("2026-W43", "vacation");
 
@@ -66,7 +75,7 @@ describe("applyWeekPreset", () => {
   });
 
   it("clears every entry for the clear preset", async () => {
-    upsertDayEntry(db, { date: "2026-10-20", type: "vab", hours: null, note: null }, "t");
+    upsertDayEntry(db, { date: "2026-10-20", type: "vab", hours: null, note: null, clientId: null }, "t");
 
     await applyWeekPreset("2026-W43", "clear");
 

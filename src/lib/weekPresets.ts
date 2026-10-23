@@ -27,7 +27,12 @@ function cleared(date: string): DayInput {
 // Maps a preset to the desired entry for each of the week's seven dates
 // (Monday first). Weekend days are always cleared; weekday red days keep their
 // holiday type and get no hours, so a preset never overwrites a helgdag.
-export function weekPresetEntries(dates: string[], preset: WeekPreset): DayInput[] {
+// The "work" preset bills its hours to the default client.
+export function weekPresetEntries(
+  dates: string[],
+  preset: WeekPreset,
+  defaultClientId: number | null = null,
+): DayInput[] {
   return dates.map((date, index) => {
     if (preset === "clear") return cleared(date);
 
@@ -36,7 +41,9 @@ export function weekPresetEntries(dates: string[], preset: WeekPreset): DayInput
 
     if (isSwedishHoliday(date)) return { date, type: "holiday", hours: 0 };
 
-    if (preset === "work") return { date, type: "work", hours: WORK_HOURS };
+    if (preset === "work") {
+      return { date, type: "work", hours: WORK_HOURS, clientId: defaultClientId };
+    }
     return { date, type: preset, hours: "" };
   });
 }
