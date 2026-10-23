@@ -1,20 +1,18 @@
 "use client";
 
-import { useActionState } from "react";
 import { toast } from "sonner";
 import { SubmitButton } from "@/components/submit-button";
-import { testBokioConnection, type ConnectionTestResult } from "./actions";
+import { testBokioConnection } from "./actions";
 
 export function ConnectionTest() {
-  const [, formAction] = useActionState<ConnectionTestResult | null>(async () => {
+  async function runConnectionTest() {
     const result = await testBokioConnection();
     if (result.ok) toast.success(result.message);
     else toast.error(result.error);
-    return result;
-  }, null);
+  }
 
   return (
-    <form action={formAction}>
+    <form action={runConnectionTest}>
       <SubmitButton variant="outline">Testa Bokio-anslutning</SubmitButton>
     </form>
   );
