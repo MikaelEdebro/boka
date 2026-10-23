@@ -23,7 +23,22 @@
 
 import * as sandcastle from "@ai-hero/sandcastle";
 import { docker } from "@ai-hero/sandcastle/sandboxes/docker";
+import { execFileSync } from "node:child_process";
 import { z } from "zod";
+
+// Commits on a branch that are not yet in the current branch. Branches are
+// reused across runs (deterministic names), so a branch can carry finished work
+// from an earlier run that never reached the merge phase.
+function unmergedCommitCount(branch: string): number {
+  try {
+    const out = execFileSync("git", ["rev-list", "--count", `HEAD..${branch}`], {
+      encoding: "utf8",
+    });
+    return Number(out.trim()) || 0;
+  } catch {
+    return 0;
+  }
+}
 
 // The planner emits its plan as JSON inside <plan> tags; Output.object extracts
 // and validates it against this schema. We use Zod here, but any Standard
@@ -170,14 +185,17 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     }
   }
 
-  // Only pass branches that actually produced commits to the merge phase.
-  // An agent that ran successfully but made no commits has nothing to merge.
+  // Pass every branch that has commits not yet in the current branch to the
+  // merge phase: commits from this run, or leftover commits from an earlier run
+  // whose merge never happened (otherwise the branch is orphaned and the issue
+  // is re-planned forever).
   const completedIssues = settled
     .map((outcome, i) => ({ outcome, issue: issues[i]! }))
     .filter(
       (entry) =>
         entry.outcome.status === "fulfilled" &&
-        entry.outcome.value.commits.length > 0,
+        (entry.outcome.value.commits.length > 0 ||
+          unmergedCommitCount(entry.issue.branch) > 0),
     )
     .map((entry) => entry.issue);
 
