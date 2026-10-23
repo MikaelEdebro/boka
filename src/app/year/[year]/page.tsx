@@ -36,11 +36,13 @@ export default async function YearPage({
   const clientNamesById = new Map(listClients(db).map((client) => [client.id, client.name]));
   const invoiced = invoicedMonths(
     year,
-    listInvoices(db).map((invoice) => ({
-      periodStart: invoice.periodStart,
-      hours: invoice.hours,
-      clientName: clientNamesById.get(invoice.clientId) ?? "Okänd kund",
-    })),
+    listInvoices(db)
+      .filter((invoice) => invoice.bokioStatus !== "deleted")
+      .map((invoice) => ({
+        periodStart: invoice.periodStart,
+        hours: invoice.hours,
+        clientName: clientNamesById.get(invoice.clientId) ?? "Okänd kund",
+      })),
   );
 
   return (

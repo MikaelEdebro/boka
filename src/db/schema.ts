@@ -45,6 +45,9 @@ export const invoices = sqliteTable("invoices", {
   clientId: integer("client_id")
     .notNull()
     .references(() => clients.id),
+  bokioStatus: text("bokio_status"),
+  bokioInvoiceNumber: text("bokio_invoice_number"),
+  statusCheckedAt: text("status_checked_at"),
   createdAt: text("created_at").notNull(),
 });
 

@@ -14,6 +14,16 @@ export function listInvoices(db: Db): Invoice[] {
   return db.select().from(invoices).orderBy(desc(invoices.periodStart)).all();
 }
 
+export type InvoiceStatusUpdate = {
+  bokioStatus: string | null;
+  bokioInvoiceNumber: string | null;
+  statusCheckedAt: string;
+};
+
+export function updateInvoiceStatus(db: Db, id: number, values: InvoiceStatusUpdate): void {
+  db.update(invoices).set(values).where(eq(invoices.id, id)).run();
+}
+
 export function insertInvoice(
   db: Db,
   values: NewInvoice,

@@ -5,6 +5,7 @@ import {
   createInvoice,
   getBokioConfig,
   getCustomer,
+  getInvoice,
   listCustomers,
 } from "@/bokio/client";
 
@@ -184,6 +185,76 @@ describe("getCustomer", () => {
     );
 
     await expect(getCustomer("c-1")).rejects.toBeInstanceOf(BokioError);
+    errorSpy.mockRestore();
+  });
+});
+
+describe("getInvoice", () => {
+  beforeEach(stubConfig);
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  });
+
+  it("returns the parsed status fields on a 200 response", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      okResponse({
+        id: "inv-1",
+        status: "published",
+        invoiceNumber: "123",
+        invoiceDate: "2026-10-31",
+        dueDate: "2026-11-30",
+        totalAmount: 15000,
+        paidAmount: 0,
+        publishedDateTime: "2026-10-31T10:00:00Z",
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const invoice = await getInvoice("inv-1");
+
+    expect(invoice).toEqual({
+      status: "published",
+      invoiceNumber: "123",
+      totalAmount: 15000,
+      paidAmount: 0,
+      dueDate: "2026-11-30",
+      publishedDateTime: "2026-10-31T10:00:00Z",
+    });
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      `https://api.bokio.se/v1/companies/${COMPANY_ID}/invoices/inv-1`,
+    );
+  });
+
+  it("keeps an unknown status value instead of throwing", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(okResponse({ id: "inv-1", status: "somethingNew" })),
+    );
+
+    const invoice = await getInvoice("inv-1");
+    expect(invoice?.status).toBe("somethingNew");
+  });
+
+  it("returns null when the invoice does not exist (404)", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("not found", { status: 404 })),
+    );
+
+    await expect(getInvoice("gone")).resolves.toBeNull();
+    errorSpy.mockRestore();
+  });
+
+  it("rethrows non-404 errors", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("forbidden", { status: 403 })),
+    );
+
+    await expect(getInvoice("inv-1")).rejects.toBeInstanceOf(BokioError);
     errorSpy.mockRestore();
   });
 });

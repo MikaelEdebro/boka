@@ -75,6 +75,14 @@ describe("invoicedKeys", () => {
     ]);
     expect(keys).toEqual(new Set(["2026-10:1", "2026-10:2"]));
   });
+
+  it("ignores invoices deleted in Bokio so the month can be re-invoiced", () => {
+    const keys = invoicedKeys([
+      { periodStart: "2026-10-01", clientId: 1, bokioStatus: "deleted" },
+      { periodStart: "2026-10-15", clientId: 2, bokioStatus: "published" },
+    ]);
+    expect(keys).toEqual(new Set(["2026-10:2"]));
+  });
 });
 
 describe("aggregateMonth", () => {

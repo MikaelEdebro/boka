@@ -142,6 +142,38 @@ const invoiceResponseSchema = z.object({
   status: z.string(),
 });
 
+// status stays a raw string so an unexpected Bokio value never throws here;
+// the badge mapping turns anything unknown into "Okänd".
+const invoiceStatusSchema = z
+  .object({
+    status: z.string(),
+    invoiceNumber: z.string().nullable().optional(),
+    totalAmount: z.number().nullable().optional(),
+    paidAmount: z.number().nullable().optional(),
+    dueDate: z.string().nullable().optional(),
+    publishedDateTime: z.string().nullable().optional(),
+  })
+  .transform((data) => ({
+    status: data.status,
+    invoiceNumber: data.invoiceNumber ?? null,
+    totalAmount: data.totalAmount ?? null,
+    paidAmount: data.paidAmount ?? null,
+    dueDate: data.dueDate ?? null,
+    publishedDateTime: data.publishedDateTime ?? null,
+  }));
+
+export type BokioInvoiceStatus = z.infer<typeof invoiceStatusSchema>;
+
+export async function getInvoice(id: string): Promise<BokioInvoiceStatus | null> {
+  try {
+    const data = await bokioFetch(`/invoices/${id}`, { method: "GET" });
+    return invoiceStatusSchema.parse(data);
+  } catch (error) {
+    if (error instanceof BokioError && error.status === 404) return null;
+    throw error;
+  }
+}
+
 export interface InvoiceLine {
   description: string;
   quantity: number;

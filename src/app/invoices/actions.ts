@@ -1,10 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createInvoice } from "@/bokio/client";
+import { createInvoice, getInvoice } from "@/bokio/client";
 import { getDb } from "@/db/client";
 import { getClient } from "@/db/clients";
-import { getWorkDays, insertInvoice, listInvoices } from "@/db/invoices";
+import { getWorkDays, insertInvoice, listInvoices, updateInvoiceStatus } from "@/db/invoices";
 import { listWeekReports } from "@/db/weekReports";
 import {
   aggregateMonth,
@@ -28,6 +28,35 @@ export async function createInvoiceForMonth(
   } catch (error) {
     console.error("createInvoiceForMonth failed:", error);
     return { ok: false, error: error instanceof Error ? error.message : "Kunde inte skapa faktura." };
+  }
+}
+
+export async function refreshInvoiceStatuses(): Promise<ActionResult> {
+  try {
+    const secrets = getSecretsStatus();
+    if (!secrets.bokioToken || !secrets.bokioCompanyId) {
+      return { ok: false, error: "Bokio-nycklar saknas i .env." };
+    }
+
+    const db = getDb();
+    const checkedAt = new Date().toISOString();
+    for (const row of listInvoices(db)) {
+      const invoice = await getInvoice(row.bokioInvoiceId);
+      updateInvoiceStatus(db, row.id, {
+        bokioStatus: invoice === null ? "deleted" : invoice.status,
+        bokioInvoiceNumber: invoice?.invoiceNumber ?? null,
+        statusCheckedAt: checkedAt,
+      });
+    }
+
+    revalidatePath("/invoices");
+    return { ok: true };
+  } catch (error) {
+    console.error("refreshInvoiceStatuses failed:", error);
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Kunde inte uppdatera status.",
+    };
   }
 }
 
