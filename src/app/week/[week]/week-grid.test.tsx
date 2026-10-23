@@ -274,6 +274,64 @@ describe("WeekGrid", () => {
     expect(screen.getByLabelText("Timmar 2026-10-20")).toHaveFocus();
   });
 
+  it("selects the hours on Tab so typing replaces the value", async () => {
+    const user = userEvent.setup();
+    renderGrid({
+      rows: [
+        { date: "2026-10-19", type: "work", hours: null, note: null, clientId: 1 },
+        { date: "2026-10-20", type: "work", hours: 8, note: null, clientId: 1 },
+      ],
+    });
+
+    screen.getByLabelText("Timmar 2026-10-19").focus();
+    await user.tab();
+    await user.keyboard("6");
+
+    expect(screen.getByLabelText("Timmar 2026-10-20")).toHaveValue(6);
+  });
+
+  it("selects the next hours on Enter so typing replaces the value", async () => {
+    const user = userEvent.setup();
+    renderGrid({
+      rows: [
+        { date: "2026-10-19", type: "work", hours: 8, note: null, clientId: 1 },
+        { date: "2026-10-20", type: "work", hours: 8, note: null, clientId: 1 },
+      ],
+    });
+
+    screen.getByLabelText("Timmar 2026-10-19").focus();
+    await user.keyboard("{Enter}6");
+
+    expect(screen.getByLabelText("Timmar 2026-10-20")).toHaveValue(6);
+  });
+
+  it("selects the hours on click so typing replaces the value", async () => {
+    const user = userEvent.setup();
+    renderGrid();
+
+    const tuesday = screen.getByLabelText("Timmar 2026-10-20");
+    fireEvent.change(tuesday, { target: { value: "8" } });
+    await user.click(tuesday);
+    await user.keyboard("6");
+
+    expect(tuesday).toHaveValue(6);
+  });
+
+  it("selects the VAB note on focus so typing replaces it", async () => {
+    const user = userEvent.setup();
+    renderGrid({
+      rows: [
+        { date: "2026-10-19", type: "work", hours: 8, note: null, clientId: 1 },
+        { date: "2026-10-20", type: "vab", hours: null, note: "Stina", clientId: null },
+      ],
+    });
+
+    await user.click(screen.getByLabelText("Barn 2026-10-20"));
+    await user.keyboard("Olle");
+
+    expect(screen.getByLabelText("Barn 2026-10-20")).toHaveValue("Olle");
+  });
+
   it("autofocuses Monday's hours input when the week is not submitted", () => {
     renderGrid();
 

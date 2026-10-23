@@ -1,7 +1,7 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
-import { useRef, useState, useTransition } from "react";
+import { useRef, useState, useTransition, type FocusEvent, type MouseEvent } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { DAY_TYPES, type DayType } from "@/db/schema";
@@ -53,6 +53,23 @@ function inputToState(input: DayInput, defaultClientId: string): RowState {
   };
 }
 
+// Browsers clear a focus-time selection on the mouseup that follows a click,
+// so that first mouseup is swallowed; later clicks still place the caret.
+function useSelectOnFocus() {
+  const justFocused = useRef(false);
+  return {
+    onFocus: (event: FocusEvent<HTMLInputElement>) => {
+      event.currentTarget.select();
+      justFocused.current = true;
+    },
+    onMouseUp: (event: MouseEvent<HTMLInputElement>) => {
+      if (!justFocused.current) return;
+      justFocused.current = false;
+      event.preventDefault();
+    },
+  };
+}
+
 export type WeekGridProps = {
   week: string;
   rows: WeekGridRow[];
@@ -80,6 +97,7 @@ export function WeekGrid({
   const [statuses, setStatuses] = useState<Record<string, SaveStatus>>({});
   const [pending, startTransition] = useTransition();
   const hourInputs = useRef<(HTMLInputElement | null)[]>([]);
+  const selectOnFocus = useSelectOnFocus();
 
   // The Kund column only earns its space once there is a choice to make.
   const showClients = clients.length > 1;
@@ -270,6 +288,7 @@ export function WeekGrid({
                       }
                     }}
                     onBlur={(event) => update(row.date, { hours: event.target.value })}
+                    {...selectOnFocus}
                     className="w-20 rounded-md border bg-transparent px-2 py-1 tabular-nums disabled:opacity-50"
                   />
                 </td>
@@ -284,6 +303,7 @@ export function WeekGrid({
                       disabled={submitted}
                       onChange={(event) => editField(row.date, { note: event.target.value })}
                       onBlur={(event) => update(row.date, { note: event.target.value })}
+                      {...selectOnFocus}
                       className="w-32 rounded-md border bg-transparent px-2 py-1 disabled:opacity-50"
                     />
                   )}
