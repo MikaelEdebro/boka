@@ -6,6 +6,10 @@ import { clients, dayEntries, invoices } from "@/db/schema";
 import ClientsPage from "./page";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
+vi.mock("next/server", () => ({ connection: vi.fn(async () => {}) }));
+
+const listCustomers = vi.fn();
+vi.mock("@/bokio/client", () => ({ listCustomers: () => listCustomers() }));
 
 vi.mock("./actions", () => ({
   saveClient: vi.fn(),
@@ -14,6 +18,11 @@ vi.mock("./actions", () => ({
 }));
 
 beforeEach(() => {
+  listCustomers.mockReset();
+  listCustomers.mockResolvedValue([
+    { id: "cust-1", name: "Acme AB", customerNumber: "001", type: "company" },
+  ]);
+  vi.spyOn(console, "error").mockImplementation(() => {});
   getDb().delete(dayEntries).run();
   getDb().delete(invoices).run();
   getDb().delete(clients).run();
@@ -91,11 +100,37 @@ describe("ClientsPage", async () => {
     expect(globexDelete).toBeEnabled();
   });
 
-  it("renders the add-client form", async () => {
+  it("renders the add-client form with Bokio customers as options", async () => {
     render(await ClientsPage());
 
     expect(screen.getByLabelText("Namn")).toBeInTheDocument();
-    expect(screen.getByLabelText("Bokio kund-ID")).toBeInTheDocument();
+    const select = screen.getByRole("combobox", { name: "Bokio-kund" });
+    expect(select).toBeEnabled();
+    expect(screen.getByRole("option", { name: "Acme AB (001)" })).toHaveValue("cust-1");
+    expect(screen.getByRole("button", { name: "Lägg till kund" })).toBeInTheDocument();
+  });
+
+  it("shows the Bokio customer name as a tooltip on each client's id", async () => {
+    upsertClient(getDb(), {
+      name: "Acme",
+      hourlyRate: 1200,
+      bokioCustomerId: "cust-1",
+      invoiceItemName: "Konsult",
+    });
+
+    render(await ClientsPage());
+
+    expect(screen.getByRole("cell", { name: "cust-1" })).toHaveAttribute("title", "Acme AB");
+  });
+
+  it("still renders the page with a disabled select when Bokio cannot be reached", async () => {
+    listCustomers.mockRejectedValue(new Error("BOKIO_TOKEN is not set."));
+
+    render(await ClientsPage());
+
+    expect(screen.getByRole("combobox", { name: "Bokio-kund" })).toBeDisabled();
+    expect(screen.getByText("Kunde inte hämta kunder från Bokio")).toBeInTheDocument();
+    expect(screen.getByText("BOKIO_TOKEN is not set.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Lägg till kund" })).toBeInTheDocument();
   });
 });

@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { type BokioCustomer, getCustomer, listCustomers } from "@/bokio/client";
+import { getCustomer } from "@/bokio/client";
 import { getDb } from "@/db/client";
 import {
   CLIENT_HAS_RECORDS_MESSAGE,
@@ -12,10 +12,6 @@ import {
 } from "@/db/clients";
 import type { ActionResult } from "@/lib/actionResult";
 import { parseClient } from "@/lib/clients";
-
-export type LoadCustomersResult =
-  | { ok: true; customers: BokioCustomer[] }
-  | { ok: false; error: string };
 
 export async function saveClient(
   _prev: ActionResult | null,
@@ -41,18 +37,6 @@ export async function saveClient(
     return { ok: true };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Kunde inte spara kunden." };
-  }
-}
-
-export async function loadBokioCustomers(): Promise<LoadCustomersResult> {
-  try {
-    return { ok: true, customers: await listCustomers() };
-  } catch (error) {
-    console.error("loadBokioCustomers failed:", error);
-    return {
-      ok: false,
-      error: error instanceof Error ? error.message : "Kunde inte hämta kunder från Bokio.",
-    };
   }
 }
 

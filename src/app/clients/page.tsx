@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { listCustomers } from "@/bokio/client";
+import { connection } from "next/server";
 import { getDb } from "@/db/client";
 import { countClientRecords, listClients } from "@/db/clients";
 import {
@@ -10,6 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { loadBokioCustomerList } from "./bokio-customers";
 import { ClientForm } from "./client-form";
 import { DeleteClientButton, MakeDefaultButton } from "./client-row-actions";
 
@@ -19,21 +20,15 @@ const currency = new Intl.NumberFormat("sv-SE", {
   maximumFractionDigits: 0,
 });
 
-async function bokioCustomerNames(): Promise<Map<string, string>> {
-  try {
-    const customers = await listCustomers();
-    return new Map(customers.map((customer) => [customer.id, customer.name]));
-  } catch {
-    // Tooltip is a nicety; never let a Bokio outage break the clients list.
-    return new Map();
-  }
-}
-
 export default async function ClientsPage() {
+  await connection();
   const db = getDb();
   const clients = listClients(db);
   const recordCounts = countClientRecords(db);
-  const bokioNames = await bokioCustomerNames();
+  const bokioCustomers = await loadBokioCustomerList();
+  const bokioNames = new Map(
+    bokioCustomers.ok ? bokioCustomers.customers.map((customer) => [customer.id, customer.name]) : [],
+  );
 
   return (
     <>
@@ -94,7 +89,7 @@ export default async function ClientsPage() {
 
       <section className="mt-8 border-t border-border pt-6">
         <h2 className="mb-4 text-sm font-medium text-muted-foreground">Lägg till kund</h2>
-        <ClientForm />
+        <ClientForm bokioCustomers={bokioCustomers} />
       </section>
     </>
   );
