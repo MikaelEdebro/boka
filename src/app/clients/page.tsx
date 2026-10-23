@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { listCustomers } from "@/bokio/client";
 import { getDb } from "@/db/client";
-import { listClients } from "@/db/clients";
+import { countClientRecords, listClients } from "@/db/clients";
 import {
   Table,
   TableBody,
@@ -30,7 +30,9 @@ async function bokioCustomerNames(): Promise<Map<string, string>> {
 }
 
 export default async function ClientsPage() {
-  const clients = listClients(getDb());
+  const db = getDb();
+  const clients = listClients(db);
+  const recordCounts = countClientRecords(db);
   const bokioNames = await bokioCustomerNames();
 
   return (
@@ -78,7 +80,10 @@ export default async function ClientsPage() {
                     </Link>
                   </TableCell>
                   <TableCell>
-                    <DeleteClientButton id={client.id} />
+                    <DeleteClientButton
+                      id={client.id}
+                      recordCount={recordCounts.get(client.id) ?? 0}
+                    />
                   </TableCell>
                 </TableRow>
               ))}

@@ -19,7 +19,12 @@ export function MakeDefaultButton({ id }: { id: number }) {
   );
 }
 
-export function DeleteClientButton({ id }: { id: number }) {
+export function DeleteClientButton({ id, recordCount }: { id: number; recordCount: number }) {
+  const blockedReason =
+    recordCount > 0
+      ? `Kunden har tidrapporter eller fakturor (${recordCount} st) och kan inte tas bort.`
+      : undefined;
+
   async function action() {
     const result = await removeClient(id);
     if (result.ok) toast.success("Kund borttagen");
@@ -27,8 +32,8 @@ export function DeleteClientButton({ id }: { id: number }) {
   }
 
   return (
-    <form action={action}>
-      <SubmitButton variant="ghost" size="sm">
+    <form action={action} title={blockedReason}>
+      <SubmitButton variant="ghost" size="sm" disabled={blockedReason != null}>
         Ta bort
       </SubmitButton>
     </form>

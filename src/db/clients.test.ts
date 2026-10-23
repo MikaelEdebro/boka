@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  clientHasRecords,
+  countClientRecords,
   deleteClient,
   getClient,
   getDefaultClient,
@@ -69,11 +71,17 @@ describe("clients db", () => {
     expect(getClient(db, second.id)).toBeUndefined();
   });
 
-  it("refuses to delete the default client when day entries exist", () => {
+  it("refuses to delete the default client when its day entries exist", () => {
     const db = testDb();
     const client = upsertClient(db, base);
     db.insert(dayEntries)
-      .values({ date: "2026-10-19", type: "work", hours: 8, updatedAt: "2026-10-19T08:00:00Z" })
+      .values({
+        date: "2026-10-19",
+        type: "work",
+        hours: 8,
+        clientId: client.id,
+        updatedAt: "2026-10-19T08:00:00Z",
+      })
       .run();
 
     expect(() => deleteClient(db, client.id)).toThrow(/tidrapporter eller fakturor/);
@@ -107,5 +115,125 @@ describe("clients db", () => {
 
     expect(getClient(db, second.id)?.isDefault).toBe(true);
     expect(getDefaultClient(db)?.id).toBe(second.id);
+  });
+
+  it("refuses to delete a non-default client with day entries", () => {
+    const db = testDb();
+    upsertClient(db, base);
+    const second = upsertClient(db, { ...base, name: "Globex", bokioCustomerId: "cust-2" });
+    db.insert(dayEntries)
+      .values({
+        date: "2026-10-19",
+        type: "work",
+        hours: 8,
+        clientId: second.id,
+        updatedAt: "2026-10-19T08:00:00Z",
+      })
+      .run();
+
+    expect(() => deleteClient(db, second.id)).toThrow(
+      "Kunden har tidrapporter eller fakturor och kan inte tas bort.",
+    );
+    expect(getClient(db, second.id)).toBeDefined();
+  });
+
+  it("deletes a non-default client when only other clients have records", () => {
+    const db = testDb();
+    const first = upsertClient(db, base);
+    const second = upsertClient(db, { ...base, name: "Globex", bokioCustomerId: "cust-2" });
+    db.insert(dayEntries)
+      .values({
+        date: "2026-10-19",
+        type: "work",
+        hours: 8,
+        clientId: first.id,
+        updatedAt: "2026-10-19T08:00:00Z",
+      })
+      .run();
+
+    deleteClient(db, second.id);
+
+    expect(getClient(db, second.id)).toBeUndefined();
+  });
+
+  it("deletes the default client without records even when other clients have records", () => {
+    const db = testDb();
+    const first = upsertClient(db, base);
+    const second = upsertClient(db, { ...base, name: "Globex", bokioCustomerId: "cust-2" });
+    db.insert(dayEntries)
+      .values({
+        date: "2026-10-19",
+        type: "work",
+        hours: 8,
+        clientId: second.id,
+        updatedAt: "2026-10-19T08:00:00Z",
+      })
+      .run();
+
+    deleteClient(db, first.id);
+
+    expect(getClient(db, first.id)).toBeUndefined();
+    expect(getDefaultClient(db)?.id).toBe(second.id);
+  });
+
+  it("clientHasRecords only counts rows referencing the client", () => {
+    const db = testDb();
+    const first = upsertClient(db, base);
+    const second = upsertClient(db, { ...base, name: "Globex", bokioCustomerId: "cust-2" });
+    db.insert(dayEntries)
+      .values({ date: "2026-10-19", type: "work", hours: 8, updatedAt: "2026-10-19T08:00:00Z" })
+      .run();
+    db.insert(invoices)
+      .values({
+        bokioInvoiceId: "inv-1",
+        periodStart: "2026-10-01",
+        periodEnd: "2026-10-31",
+        hours: 10,
+        clientId: first.id,
+        createdAt: "2026-10-31T00:00:00Z",
+      })
+      .run();
+
+    expect(clientHasRecords(db, first.id)).toBe(true);
+    expect(clientHasRecords(db, second.id)).toBe(false);
+  });
+
+  it("countClientRecords returns day entry plus invoice counts per client", () => {
+    const db = testDb();
+    const first = upsertClient(db, base);
+    const second = upsertClient(db, { ...base, name: "Globex", bokioCustomerId: "cust-2" });
+    db.insert(dayEntries)
+      .values([
+        {
+          date: "2026-10-19",
+          type: "work",
+          hours: 8,
+          clientId: first.id,
+          updatedAt: "2026-10-19T08:00:00Z",
+        },
+        {
+          date: "2026-10-20",
+          type: "work",
+          hours: 8,
+          clientId: first.id,
+          updatedAt: "2026-10-20T08:00:00Z",
+        },
+      ])
+      .run();
+    db.insert(invoices)
+      .values({
+        bokioInvoiceId: "inv-1",
+        periodStart: "2026-10-01",
+        periodEnd: "2026-10-31",
+        hours: 10,
+        clientId: first.id,
+        createdAt: "2026-10-31T00:00:00Z",
+      })
+      .run();
+
+    const counts = countClientRecords(db);
+
+    expect(counts.get(first.id)).toBe(3);
+    expect(counts.get(second.id) ?? 0).toBe(0);
   });
 });

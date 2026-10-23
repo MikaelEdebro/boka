@@ -13,6 +13,12 @@ vi.mock("@/db/client", async (importOriginal) => ({
   getDb: () => db,
 }));
 
+const deleteClient = vi.fn();
+vi.mock("@/db/clients", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/db/clients")>()),
+  deleteClient: (...args: unknown[]) => deleteClient(...args),
+}));
+
 const getCustomer = vi.fn();
 vi.mock("@/bokio/client", () => ({
   getCustomer: (...args: unknown[]) => getCustomer(...args),
@@ -28,9 +34,12 @@ function form(fields: Record<string, string>): FormData {
 }
 
 describe("clients actions", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     db = testDb();
     revalidatePath.mockReset();
+    const actual = await vi.importActual<typeof import("@/db/clients")>("@/db/clients");
+    deleteClient.mockReset();
+    deleteClient.mockImplementation(actual.deleteClient);
     getCustomer.mockReset();
     getCustomer.mockResolvedValue({ id: "cust-1", name: "Acme AB", type: "company" });
   });
@@ -86,22 +95,64 @@ describe("clients actions", () => {
     expect(listClients(db)).toHaveLength(0);
   });
 
-  it("removeClient refuses to delete the default client with recorded data", async () => {
-    const client = upsertClient(db, {
+  it("removeClient refuses to delete a client with recorded data", async () => {
+    upsertClient(db, {
       name: "Acme",
       hourlyRate: 1200,
       bokioCustomerId: "cust-1",
       invoiceItemName: "Programmering",
     });
+    const second = upsertClient(db, {
+      name: "Globex",
+      hourlyRate: 900,
+      bokioCustomerId: "cust-2",
+      invoiceItemName: "Programmering",
+    });
     db.insert(dayEntries)
-      .values({ date: "2026-10-19", type: "work", hours: 8, updatedAt: "2026-10-19T08:00:00Z" })
+      .values({
+        date: "2026-10-19",
+        type: "work",
+        hours: 8,
+        clientId: second.id,
+        updatedAt: "2026-10-19T08:00:00Z",
+      })
       .run();
 
-    const result = await removeClient(client.id);
+    const result = await removeClient(second.id);
 
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error).toMatch(/tidrapporter eller fakturor/);
-    expect(db.select().from(clients).all()).toHaveLength(1);
+    expect(result).toEqual({
+      ok: false,
+      error: "Kunden har tidrapporter eller fakturor och kan inte tas bort.",
+    });
+    expect(db.select().from(clients).all()).toHaveLength(2);
+  });
+
+  it("removeClient maps a SQLite constraint error to the friendly message", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    deleteClient.mockImplementation(() => {
+      throw Object.assign(new Error("FOREIGN KEY constraint failed"), {
+        code: "SQLITE_CONSTRAINT_FOREIGNKEY",
+      });
+    });
+
+    const result = await removeClient(1);
+
+    expect(result).toEqual({
+      ok: false,
+      error: "Kunden har tidrapporter eller fakturor och kan inte tas bort.",
+    });
+  });
+
+  it("removeClient maps an unexpected error to a readable message", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    deleteClient.mockImplementation(() => {
+      throw new Error("SqliteError: disk I/O error");
+    });
+
+    const result = await removeClient(1);
+
+    expect(result).toEqual({ ok: false, error: "Kunde inte ta bort kunden." });
+    expect(revalidatePath).not.toHaveBeenCalled();
   });
 
   it("saveClient verifies the customer id against Bokio and passes it through", async () => {

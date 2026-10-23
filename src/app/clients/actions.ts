@@ -3,7 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { type BokioCustomer, getCustomer, listCustomers } from "@/bokio/client";
 import { getDb } from "@/db/client";
-import { deleteClient, setDefaultClient, upsertClient } from "@/db/clients";
+import {
+  CLIENT_HAS_RECORDS_MESSAGE,
+  ClientHasRecordsError,
+  deleteClient,
+  setDefaultClient,
+  upsertClient,
+} from "@/db/clients";
 import type { ActionResult } from "@/lib/actionResult";
 import { parseClient } from "@/lib/clients";
 
@@ -56,8 +62,22 @@ export async function removeClient(id: number): Promise<ActionResult> {
     revalidatePath("/clients");
     return { ok: true };
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : "Kunde inte ta bort kunden." };
+    if (error instanceof ClientHasRecordsError) return { ok: false, error: error.message };
+    console.error("removeClient failed:", error);
+    return {
+      ok: false,
+      error: isSqliteConstraintError(error) ? CLIENT_HAS_RECORDS_MESSAGE : "Kunde inte ta bort kunden.",
+    };
   }
+}
+
+function isSqliteConstraintError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    "code" in error &&
+    typeof error.code === "string" &&
+    error.code.startsWith("SQLITE_CONSTRAINT")
+  );
 }
 
 export async function makeDefaultClient(id: number): Promise<ActionResult> {
