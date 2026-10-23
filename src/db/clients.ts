@@ -24,31 +24,16 @@ export function getDefaultClient(db: Db): Client | undefined {
 }
 
 export function upsertClient(db: Db, values: ClientValues & { id?: number }): Client {
-  if (values.id != null) {
-    return db
-      .update(clients)
-      .set({
-        name: values.name,
-        hourlyRate: values.hourlyRate,
-        bokioCustomerId: values.bokioCustomerId,
-        invoiceItemName: values.invoiceItemName,
-      })
-      .where(eq(clients.id, values.id))
-      .returning()
-      .get();
+  const { id, ...fields } = values;
+
+  if (id != null) {
+    return db.update(clients).set(fields).where(eq(clients.id, id)).returning().get();
   }
 
   const isFirst = db.select({ value: count() }).from(clients).get()?.value === 0;
   return db
     .insert(clients)
-    .values({
-      name: values.name,
-      hourlyRate: values.hourlyRate,
-      bokioCustomerId: values.bokioCustomerId,
-      invoiceItemName: values.invoiceItemName,
-      isDefault: isFirst,
-      createdAt: new Date().toISOString(),
-    })
+    .values({ ...fields, isDefault: isFirst, createdAt: new Date().toISOString() })
     .returning()
     .get();
 }
