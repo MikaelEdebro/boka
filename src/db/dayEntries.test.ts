@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deleteDayEntry, getYearEntries, upsertDayEntry } from "@/db/dayEntries";
+import { deleteDayEntry, getVabNotes, getYearEntries, upsertDayEntry } from "@/db/dayEntries";
 import { dayEntries } from "@/db/schema";
 import { testDb } from "@/test/db";
 
@@ -63,8 +63,22 @@ describe("getYearEntries", () => {
     const entries = getYearEntries(db, 2026);
 
     expect(entries).toEqual([
-      { date: "2026-01-02", type: "work", hours: 6 },
-      { date: "2026-03-10", type: "vacation", hours: null },
+      { date: "2026-01-02", type: "work", hours: 6, note: null },
+      { date: "2026-03-10", type: "vacation", hours: null, note: null },
     ]);
+  });
+});
+
+describe("getVabNotes", () => {
+  it("returns distinct non-empty notes used on vab days, sorted", () => {
+    const db = testDb();
+    upsertDayEntry(db, { date: "2026-01-05", type: "vab", hours: null, note: "Stina" }, "t");
+    upsertDayEntry(db, { date: "2026-01-06", type: "vab", hours: null, note: "Otto" }, "t");
+    upsertDayEntry(db, { date: "2026-01-07", type: "vab", hours: null, note: "Stina" }, "t");
+    upsertDayEntry(db, { date: "2026-01-08", type: "vab", hours: null, note: null }, "t");
+    // A note on a non-vab day must not show up.
+    upsertDayEntry(db, { date: "2026-01-09", type: "sick", hours: null, note: "Ingen" }, "t");
+
+    expect(getVabNotes(db)).toEqual(["Otto", "Stina"]);
   });
 });

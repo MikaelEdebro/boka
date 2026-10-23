@@ -39,6 +39,25 @@ describe("YearPage", () => {
     expect(within(januari).getByText("1")).toBeInTheDocument();
   });
 
+  it("lists every VAB day of the year with date and note, grouped by month", async () => {
+    const db = getDb();
+    upsertDayEntry(db, { date: "2026-01-05", type: "vab", hours: null, note: "Stina" }, "t");
+    upsertDayEntry(db, { date: "2026-03-10", type: "vab", hours: null, note: "Otto" }, "t");
+    upsertDayEntry(db, { date: "2026-03-11", type: "vab", hours: null, note: null }, "t");
+
+    render(await YearPage({ params: Promise.resolve({ year: "2026" }) }));
+
+    const vab = screen.getByRole("heading", { name: "VAB-dagar" });
+    expect(vab).toBeInTheDocument();
+
+    const list = screen.getByRole("list", { name: "VAB-dagar" });
+    expect(within(list).getByText(/2026-01-05/)).toBeInTheDocument();
+    expect(within(list).getByText(/Stina/)).toBeInTheDocument();
+    expect(within(list).getByText(/2026-03-10/)).toBeInTheDocument();
+    expect(within(list).getByText(/Otto/)).toBeInTheDocument();
+    expect(within(list).getByText(/2026-03-11/)).toBeInTheDocument();
+  });
+
   it("links to the previous and next year", async () => {
     render(await YearPage({ params: Promise.resolve({ year: "2026" }) }));
 

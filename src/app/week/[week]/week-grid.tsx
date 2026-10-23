@@ -51,9 +51,12 @@ export type WeekGridProps = {
   rows: WeekGridRow[];
   submitted: boolean;
   submittedAt: string | null;
+  vabNotes: string[];
 };
 
-export function WeekGrid({ week, rows, submitted, submittedAt }: WeekGridProps) {
+const VAB_NOTES_LIST_ID = "vab-notes";
+
+export function WeekGrid({ week, rows, submitted, submittedAt, vabNotes }: WeekGridProps) {
   const [states, setStates] = useState<Record<string, RowState>>(() =>
     Object.fromEntries(rows.map((row) => [row.date, toState(row)])),
   );
@@ -122,6 +125,11 @@ export function WeekGrid({ week, rows, submitted, submittedAt }: WeekGridProps) 
           ))}
         </div>
       )}
+      <datalist id={VAB_NOTES_LIST_ID}>
+        {vabNotes.map((note) => (
+          <option key={note} value={note} />
+        ))}
+      </datalist>
       <table className="mt-6 w-full text-sm">
         <thead>
           <tr className="border-b text-left text-muted-foreground">
@@ -186,6 +194,24 @@ export function WeekGrid({ week, rows, submitted, submittedAt }: WeekGridProps) 
                     onBlur={(event) => update(row.date, { hours: event.target.value })}
                     className="w-20 rounded-md border bg-transparent px-2 py-1 tabular-nums disabled:opacity-50"
                   />
+                  {state.type === "vab" && (
+                    <input
+                      aria-label={`Barn ${row.date}`}
+                      type="text"
+                      placeholder="Barn"
+                      list={VAB_NOTES_LIST_ID}
+                      value={state.note}
+                      disabled={submitted}
+                      onChange={(event) =>
+                        setStates((prev) => ({
+                          ...prev,
+                          [row.date]: { ...prev[row.date], note: event.target.value },
+                        }))
+                      }
+                      onBlur={(event) => update(row.date, { note: event.target.value })}
+                      className="ml-2 w-32 rounded-md border bg-transparent px-2 py-1 disabled:opacity-50"
+                    />
+                  )}
                 </td>
                 <td className="py-2 text-xs text-muted-foreground" aria-live="polite">
                   {status === "saving" && "Sparar…"}

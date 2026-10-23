@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { inArray } from "drizzle-orm";
 import { getDb } from "@/db/client";
+import { getVabNotes } from "@/db/dayEntries";
 import { type DayEntry, dayEntries } from "@/db/schema";
 import { getWeekReport } from "@/db/weekReports";
 import { isSwedishHoliday } from "@/lib/holidays";
@@ -51,6 +52,7 @@ export default async function WeekPage({
   });
 
   const report = getWeekReport(db, week);
+  const vabNotes = getVabNotes(db);
 
   return (
     <>
@@ -80,6 +82,7 @@ export default async function WeekPage({
         rows={rows}
         submitted={report !== undefined}
         submittedAt={report?.submittedAt ?? null}
+        vabNotes={vabNotes}
       />
     </>
   );

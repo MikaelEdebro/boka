@@ -23,7 +23,14 @@ const rows: WeekGridRow[] = [
 
 function renderGrid(props: Partial<ComponentProps<typeof WeekGrid>> = {}) {
   return render(
-    <WeekGrid week="2026-W43" rows={rows} submitted={false} submittedAt={null} {...props} />,
+    <WeekGrid
+      week="2026-W43"
+      rows={rows}
+      submitted={false}
+      submittedAt={null}
+      vabNotes={[]}
+      {...props}
+    />,
   );
 }
 
@@ -94,6 +101,66 @@ describe("WeekGrid", () => {
       note: "",
     });
     expect(screen.getByText("12")).toBeInTheDocument();
+  });
+
+  it("shows a note input only for VAB rows and saves the note on blur", () => {
+    renderGrid();
+
+    expect(screen.queryByLabelText("Barn 2026-10-20")).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Typ 2026-10-20"), {
+      target: { value: "vab" },
+    });
+
+    const note = screen.getByLabelText("Barn 2026-10-20");
+    expect(note).toHaveAttribute("placeholder", "Barn");
+
+    fireEvent.change(note, { target: { value: "Stina" } });
+    fireEvent.blur(note);
+
+    expect(saveDay).toHaveBeenLastCalledWith({
+      date: "2026-10-20",
+      type: "vab",
+      hours: "",
+      note: "Stina",
+    });
+  });
+
+  it("keeps the note when switching type away from VAB and back", () => {
+    renderGrid();
+
+    fireEvent.change(screen.getByLabelText("Typ 2026-10-20"), {
+      target: { value: "vab" },
+    });
+    fireEvent.change(screen.getByLabelText("Barn 2026-10-20"), {
+      target: { value: "Otto" },
+    });
+    fireEvent.blur(screen.getByLabelText("Barn 2026-10-20"));
+
+    fireEvent.change(screen.getByLabelText("Typ 2026-10-20"), {
+      target: { value: "work" },
+    });
+    expect(screen.queryByLabelText("Barn 2026-10-20")).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Typ 2026-10-20"), {
+      target: { value: "vab" },
+    });
+    expect(screen.getByLabelText("Barn 2026-10-20")).toHaveValue("Otto");
+  });
+
+  it("offers previously used VAB notes as datalist options", () => {
+    renderGrid({ vabNotes: ["Otto", "Stina"] });
+
+    fireEvent.change(screen.getByLabelText("Typ 2026-10-20"), {
+      target: { value: "vab" },
+    });
+
+    const note = screen.getByLabelText("Barn 2026-10-20");
+    const listId = note.getAttribute("list");
+    expect(listId).toBeTruthy();
+    const datalist = document.getElementById(listId as string);
+    expect(datalist).not.toBeNull();
+    expect(datalist?.querySelectorAll("option")).toHaveLength(2);
   });
 
   it("submits the week from the submit button", () => {

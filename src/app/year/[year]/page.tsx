@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { getDb } from "@/db/client";
 import { getYearEntries } from "@/db/dayEntries";
 import { DAY_TYPE_LABELS, MONTH_LABELS } from "@/lib/labels";
-import { summarizeYear } from "@/lib/summary";
+import { summarizeYear, vabDaysByMonth } from "@/lib/summary";
 
 const YEAR_RE = /^\d{4}$/;
 
@@ -20,7 +20,9 @@ export default async function YearPage({
   if (!YEAR_RE.test(yearParam)) notFound();
   const year = Number(yearParam);
 
-  const summary = summarizeYear(year, getYearEntries(getDb(), year));
+  const entries = getYearEntries(getDb(), year);
+  const summary = summarizeYear(year, entries);
+  const vabMonths = vabDaysByMonth(year, entries);
 
   return (
     <>
@@ -77,6 +79,29 @@ export default async function YearPage({
           </tr>
         </tfoot>
       </table>
+
+      {vabMonths.length > 0 && (
+        <section className="mt-10">
+          <h2 className="mb-4 text-lg font-semibold">VAB-dagar</h2>
+          <ul aria-label="VAB-dagar" className="space-y-4 text-sm">
+            {vabMonths.map((month) => (
+              <li key={month.month}>
+                <h3 className="mb-1 font-medium text-muted-foreground">
+                  {MONTH_LABELS[month.month - 1]}
+                </h3>
+                <ul className="space-y-1">
+                  {month.days.map((day) => (
+                    <li key={day.date} className="flex gap-4">
+                      <span className="tabular-nums">{day.date}</span>
+                      <span>{day.note ?? "—"}</span>
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </>
   );
 }

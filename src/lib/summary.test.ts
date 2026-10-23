@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { summarizeYear, type SummaryEntry } from "@/lib/summary";
+import { summarizeYear, vabDaysByMonth, type SummaryEntry } from "@/lib/summary";
 
 describe("summarizeYear", () => {
   it("returns 12 months even with no entries, all zero", () => {
@@ -62,5 +62,28 @@ describe("summarizeYear", () => {
       parental: 1,
       holiday: 1,
     });
+  });
+});
+
+describe("vabDaysByMonth", () => {
+  it("groups the year's vab days by month, each month and its days sorted", () => {
+    const entries: SummaryEntry[] = [
+      { date: "2026-03-11", type: "vab", hours: null, note: null },
+      { date: "2026-01-05", type: "vab", hours: null, note: "Stina" },
+      { date: "2026-03-10", type: "vab", hours: null, note: "Otto" },
+      { date: "2026-02-02", type: "work", hours: 8, note: null },
+      { date: "2025-12-24", type: "vab", hours: null, note: "Förra året" },
+    ];
+
+    expect(vabDaysByMonth(2026, entries)).toEqual([
+      { month: 1, days: [{ date: "2026-01-05", note: "Stina" }] },
+      {
+        month: 3,
+        days: [
+          { date: "2026-03-10", note: "Otto" },
+          { date: "2026-03-11", note: null },
+        ],
+      },
+    ]);
   });
 });

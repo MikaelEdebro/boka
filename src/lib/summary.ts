@@ -1,6 +1,11 @@
 import type { DayType } from "@/db/schema";
 
-export type SummaryEntry = { date: string; type: DayType; hours: number | null };
+export type SummaryEntry = {
+  date: string;
+  type: DayType;
+  hours: number | null;
+  note?: string | null;
+};
 
 export type MonthSummary = {
   month: number;
@@ -61,4 +66,27 @@ export function summarizeYear(year: number, entries: SummaryEntry[]): YearSummar
   }
 
   return { year, months, totals };
+}
+
+export type VabDay = { date: string; note: string | null };
+export type VabMonth = { month: number; days: VabDay[] };
+
+export function vabDaysByMonth(year: number, entries: SummaryEntry[]): VabMonth[] {
+  const byMonth = new Map<number, VabDay[]>();
+
+  for (const entry of entries) {
+    if (entry.type !== "vab") continue;
+    if (entry.date.slice(0, 4) !== String(year)) continue;
+    const month = Number(entry.date.slice(5, 7));
+    const days = byMonth.get(month) ?? [];
+    days.push({ date: entry.date, note: entry.note ?? null });
+    byMonth.set(month, days);
+  }
+
+  return [...byMonth.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([month, days]) => ({
+      month,
+      days: [...days].sort((a, b) => a.date.localeCompare(b.date)),
+    }));
 }
