@@ -3,6 +3,9 @@ import { integer, primaryKey, real, sqliteTable, text } from "drizzle-orm/sqlite
 export const DAY_TYPES = ["work", "vacation", "leave", "vab", "sick", "parental", "holiday"] as const;
 export type DayType = (typeof DAY_TYPES)[number];
 
+export const THEMES = ["light", "dark", "system"] as const;
+export type Theme = (typeof THEMES)[number];
+
 export const dayEntries = sqliteTable("day_entries", {
   date: text("date").primaryKey(),
   type: text("type", { enum: DAY_TYPES }).notNull(),
@@ -24,6 +27,7 @@ export const weekReports = sqliteTable(
 
 export const settings = sqliteTable("settings", {
   id: integer("id").primaryKey(),
+  theme: text("theme", { enum: THEMES }).notNull().default("system"),
 });
 
 export const clients = sqliteTable("clients", {
