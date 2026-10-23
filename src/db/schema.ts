@@ -1,6 +1,6 @@
 import { integer, primaryKey, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
-export const DAY_TYPES = ["work", "vacation", "vab", "sick", "parental", "holiday"] as const;
+export const DAY_TYPES = ["work", "vacation", "leave", "vab", "sick", "parental", "holiday"] as const;
 export type DayType = (typeof DAY_TYPES)[number];
 
 export const dayEntries = sqliteTable("day_entries", {

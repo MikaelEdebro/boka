@@ -28,6 +28,17 @@ describe("YearPage", () => {
     expect(within(totals).getByText("1")).toBeInTheDocument();
   });
 
+  it("counts leave days in a Ledig column", async () => {
+    const db = getDb();
+    upsertDayEntry(db, { date: "2026-01-12", type: "leave", hours: null, note: null }, "t");
+
+    render(await YearPage({ params: Promise.resolve({ year: "2026" }) }));
+
+    expect(screen.getByRole("columnheader", { name: "Ledig" })).toBeInTheDocument();
+    const januari = screen.getByRole("row", { name: /Januari/ });
+    expect(within(januari).getByText("1")).toBeInTheDocument();
+  });
+
   it("links to the previous and next year", async () => {
     render(await YearPage({ params: Promise.resolve({ year: "2026" }) }));
 

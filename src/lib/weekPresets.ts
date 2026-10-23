@@ -6,6 +6,7 @@ import { isSwedishHoliday } from "@/lib/holidays";
 export const WEEK_PRESET_LABELS = {
   work: "Jobbat hela veckan",
   vacation: "Semester hela veckan",
+  leave: "Ledig hela veckan",
   vab: "VAB hela veckan",
   sick: "Sjuk hela veckan",
   clear: "Rensa veckan",

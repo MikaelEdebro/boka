@@ -7,7 +7,7 @@ import { summarizeYear } from "@/lib/summary";
 
 const YEAR_RE = /^\d{4}$/;
 
-const DAY_TYPE_COLUMNS = ["vacation", "vab", "sick", "parental", "holiday"] as const;
+const DAY_TYPE_COLUMNS = ["vacation", "leave", "vab", "sick", "parental", "holiday"] as const;
 
 export const instant = false;
 

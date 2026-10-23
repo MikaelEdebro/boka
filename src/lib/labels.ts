@@ -3,6 +3,7 @@ import type { DayType } from "@/db/schema";
 export const DAY_TYPE_LABELS: Record<DayType, string> = {
   work: "Arbete",
   vacation: "Semester",
+  leave: "Ledig",
   vab: "VAB",
   sick: "Sjuk",
   parental: "Föräldraledig",

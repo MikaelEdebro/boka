@@ -45,6 +45,18 @@ describe("weekPresetEntries", () => {
     );
   });
 
+  it("fills Monday–Friday with leave and no hours", () => {
+    const entries = weekPresetEntries(plainWeek, "leave");
+
+    expect(entries.slice(0, 5)).toEqual(
+      plainWeek.slice(0, 5).map((date) => ({ date, type: "leave", hours: "" })),
+    );
+    expect(entries.slice(5)).toEqual([
+      { date: "2026-10-24", type: "work", hours: "" },
+      { date: "2026-10-25", type: "work", hours: "" },
+    ]);
+  });
+
   it("uses the chosen type for vab and sick presets", () => {
     expect(weekPresetEntries(plainWeek, "vab")[0]).toEqual({
       date: "2026-10-19",
@@ -82,6 +94,7 @@ describe("weekPresetEntries", () => {
 
   it("exposes a Swedish label for each preset", () => {
     expect(WEEK_PRESET_LABELS.work).toBe("Jobbat hela veckan");
+    expect(WEEK_PRESET_LABELS.leave).toBe("Ledig hela veckan");
     expect(WEEK_PRESET_LABELS.clear).toBe("Rensa veckan");
   });
 });

@@ -34,6 +34,16 @@ describe("parseDay", () => {
     });
   });
 
+  it("parses a leave day without hours like vacation", () => {
+    expect(parseDay({ date: "2026-10-20", type: "leave", hours: "" })).toEqual({
+      op: "upsert",
+      date: "2026-10-20",
+      type: "leave",
+      hours: null,
+      note: null,
+    });
+  });
+
   it("treats an empty work day as a delete", () => {
     expect(parseDay({ date: "2026-10-19", type: "work", hours: "" })).toEqual({
       op: "delete",

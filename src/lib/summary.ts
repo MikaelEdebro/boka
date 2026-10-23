@@ -6,6 +6,7 @@ export type MonthSummary = {
   month: number;
   workHours: number;
   vacation: number;
+  leave: number;
   vab: number;
   sick: number;
   parental: number;
@@ -21,7 +22,7 @@ export type YearSummary = {
 };
 
 function emptyMonth(month: number): MonthSummary {
-  return { month, workHours: 0, vacation: 0, vab: 0, sick: 0, parental: 0, holiday: 0 };
+  return { month, workHours: 0, vacation: 0, leave: 0, vab: 0, sick: 0, parental: 0, holiday: 0 };
 }
 
 export function summarizeYear(year: number, entries: SummaryEntry[]): YearSummary {
@@ -43,6 +44,7 @@ export function summarizeYear(year: number, entries: SummaryEntry[]): YearSummar
   const totals: YearTotals = {
     workHours: 0,
     vacation: 0,
+    leave: 0,
     vab: 0,
     sick: 0,
     parental: 0,
@@ -51,6 +53,7 @@ export function summarizeYear(year: number, entries: SummaryEntry[]): YearSummar
   for (const month of months) {
     totals.workHours += month.workHours;
     totals.vacation += month.vacation;
+    totals.leave += month.leave;
     totals.vab += month.vab;
     totals.sick += month.sick;
     totals.parental += month.parental;
