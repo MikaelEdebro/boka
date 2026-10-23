@@ -24,7 +24,6 @@ export function ClientForm({
   bokioCustomers: BokioCustomerList;
 }) {
   const router = useRouter();
-  const [name, setName] = useState(client?.name ?? "");
   const [bokioCustomerId, setBokioCustomerId] = useState(client?.bokioCustomerId ?? "");
   const customers = bokioCustomers.ok ? bokioCustomers.customers : [];
   const storedIdUnknown =
@@ -46,39 +45,9 @@ export function ClientForm({
     null,
   );
 
-  function pickCustomer(id: string) {
-    const customer = customers.find((c) => c.id === id);
-    if (!customer) return;
-    setBokioCustomerId(customer.id);
-    if (name.trim() === "") setName(customer.name);
-  }
-
   return (
     <form action={formAction} className="space-y-5">
       {client && <input type="hidden" name="id" value={client.id} />}
-
-      <div className="space-y-1.5">
-        <Label htmlFor="name">Namn</Label>
-        <Input
-          id="name"
-          name="name"
-          type="text"
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-        />
-      </div>
-
-      <div className="space-y-1.5">
-        <Label htmlFor="hourlyRate">Timpris (SEK)</Label>
-        <Input
-          id="hourlyRate"
-          name="hourlyRate"
-          type="number"
-          min="0"
-          step="any"
-          defaultValue={client?.hourlyRate ?? ""}
-        />
-      </div>
 
       <div className="space-y-1.5">
         <Label htmlFor="bokioCustomerId">Bokio-kund</Label>
@@ -86,7 +55,7 @@ export function ClientForm({
           id="bokioCustomerId"
           name="bokioCustomerId"
           value={bokioCustomerId}
-          onChange={(event) => pickCustomer(event.target.value)}
+          onChange={(event) => setBokioCustomerId(event.target.value)}
           disabled={!bokioCustomers.ok}
           className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm disabled:cursor-not-allowed disabled:opacity-50"
         >
@@ -116,6 +85,18 @@ export function ClientForm({
       </div>
 
       <div className="space-y-1.5">
+        <Label htmlFor="hourlyRate">Timpris (SEK)</Label>
+        <Input
+          id="hourlyRate"
+          name="hourlyRate"
+          type="number"
+          min="0"
+          step="any"
+          defaultValue={client?.hourlyRate ?? ""}
+        />
+      </div>
+
+      <div className="space-y-1.5">
         <Label htmlFor="invoiceItemName">Fakturarad</Label>
         <Input
           id="invoiceItemName"
@@ -126,7 +107,7 @@ export function ClientForm({
       </div>
 
       <div className="flex justify-end">
-        <SubmitButton>{client ? "Spara" : "Lägg till kund"}</SubmitButton>
+        <SubmitButton disabled={!bokioCustomers.ok}>{client ? "Spara" : "Lägg till kund"}</SubmitButton>
       </div>
     </form>
   );

@@ -63,4 +63,35 @@ describe("EditClientPage", () => {
     expect(screen.getByRole("option", { name: "Okänd kund (cust-9)" })).toBeDisabled();
     expect(screen.getByRole("combobox", { name: "Bokio-kund" })).toHaveValue("cust-9");
   });
+
+  it("uses the Bokio customer's current name as the heading", async () => {
+    listCustomers.mockResolvedValue([
+      { id: "cust-2", name: "Globex AB", customerNumber: "002", type: "company" },
+    ]);
+    const client = upsertClient(getDb(), {
+      name: "Globex",
+      hourlyRate: 900,
+      bokioCustomerId: "cust-2",
+      invoiceItemName: "Programmering",
+    });
+
+    render(await EditClientPage(params(client.id)));
+
+    expect(screen.getByRole("heading", { level: 1, name: "Globex AB" })).toBeInTheDocument();
+  });
+
+  it("falls back to the stored name as the heading when Bokio cannot be reached", async () => {
+    listCustomers.mockRejectedValue(new Error("Bokio svarade 403 Forbidden"));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const client = upsertClient(getDb(), {
+      name: "Globex",
+      hourlyRate: 900,
+      bokioCustomerId: "cust-2",
+      invoiceItemName: "Programmering",
+    });
+
+    render(await EditClientPage(params(client.id)));
+
+    expect(screen.getByRole("heading", { level: 1, name: "Globex" })).toBeInTheDocument();
+  });
 });

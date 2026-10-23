@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseClient } from "@/lib/clients";
+import { parseClient, parseClientForm } from "@/lib/clients";
 
 describe("parseClient", () => {
   it("parses a full form and trims strings", () => {
@@ -39,6 +39,20 @@ describe("parseClient", () => {
   it("rejects a negative hourly rate", () => {
     expect(() =>
       parseClient({ name: "Acme", hourlyRate: "-5", bokioCustomerId: "c", invoiceItemName: "x" }),
+    ).toThrow();
+  });
+});
+
+describe("parseClientForm", () => {
+  it("parses the form fields without a name", () => {
+    expect(
+      parseClientForm({ hourlyRate: "1200", bokioCustomerId: " cust-1 ", invoiceItemName: "" }),
+    ).toEqual({ hourlyRate: 1200, bokioCustomerId: "cust-1", invoiceItemName: "Programmering" });
+  });
+
+  it("rejects a blank Bokio customer id", () => {
+    expect(() =>
+      parseClientForm({ hourlyRate: "1", bokioCustomerId: "", invoiceItemName: "x" }),
     ).toThrow();
   });
 });

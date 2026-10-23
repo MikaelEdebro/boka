@@ -103,7 +103,7 @@ describe("ClientsPage", async () => {
   it("renders the add-client form with Bokio customers as options", async () => {
     render(await ClientsPage());
 
-    expect(screen.getByLabelText("Namn")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Namn")).not.toBeInTheDocument();
     const select = screen.getByRole("combobox", { name: "Bokio-kund" });
     expect(select).toBeEnabled();
     expect(screen.getByRole("option", { name: "Acme AB (001)" })).toHaveValue("cust-1");
@@ -131,6 +131,6 @@ describe("ClientsPage", async () => {
     expect(screen.getByRole("combobox", { name: "Bokio-kund" })).toBeDisabled();
     expect(screen.getByText("Kunde inte hämta kunder från Bokio")).toBeInTheDocument();
     expect(screen.getByText("BOKIO_TOKEN is not set.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Lägg till kund" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Lägg till kund" })).toBeDisabled();
   });
 });

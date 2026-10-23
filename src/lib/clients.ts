@@ -11,6 +11,14 @@ export const clientSchema = z.object({
   ),
 });
 
+export const clientFormSchema = clientSchema.omit({ name: true });
+
+export type ClientFormValues = z.infer<typeof clientFormSchema>;
+
+export function parseClientForm(input: unknown): ClientFormValues {
+  return clientFormSchema.parse(input);
+}
+
 export function parseClient(input: unknown): ClientValues {
   return clientSchema.parse(input);
 }

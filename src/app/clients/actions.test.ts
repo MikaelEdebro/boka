@@ -43,16 +43,16 @@ describe("clients actions", () => {
     getCustomer.mockResolvedValue({ id: "cust-1", name: "Acme AB", type: "company" });
   });
 
-  it("saveClient validates and inserts a new client", async () => {
+  it("saveClient validates and inserts a new client named after the Bokio customer", async () => {
     const result = await saveClient(
       null,
-      form({ name: " Acme ", hourlyRate: "1200", bokioCustomerId: "cust-1", invoiceItemName: "" }),
+      form({ hourlyRate: "1200", bokioCustomerId: "cust-1", invoiceItemName: "" }),
     );
 
     expect(result).toEqual({ ok: true });
     const [client] = listClients(db);
     expect(client).toMatchObject({
-      name: "Acme",
+      name: "Acme AB",
       hourlyRate: 1200,
       bokioCustomerId: "cust-1",
       invoiceItemName: "Programmering",
@@ -61,7 +61,7 @@ describe("clients actions", () => {
     expect(revalidatePath).toHaveBeenCalledWith("/clients");
   });
 
-  it("saveClient updates an existing client by id", async () => {
+  it("saveClient updates an existing client by id and refreshes the name from Bokio", async () => {
     const existing = upsertClient(db, {
       name: "Acme",
       hourlyRate: 1000,
@@ -73,7 +73,6 @@ describe("clients actions", () => {
       null,
       form({
         id: String(existing.id),
-        name: "Acme AB",
         hourlyRate: "1500",
         bokioCustomerId: "cust-1",
         invoiceItemName: "Konsult",
@@ -84,13 +83,23 @@ describe("clients actions", () => {
     expect(listClients(db)[0]).toMatchObject({ name: "Acme AB", hourlyRate: 1500 });
   });
 
-  it("saveClient returns an error for invalid input", async () => {
+  it("saveClient ignores a submitted name and stores the Bokio customer name", async () => {
+    await saveClient(
+      null,
+      form({ name: "Egen", hourlyRate: "1200", bokioCustomerId: "cust-1", invoiceItemName: "" }),
+    );
+
+    expect(listClients(db)[0].name).toBe("Acme AB");
+  });
+
+  it("saveClient returns an error for invalid input without calling Bokio", async () => {
     const result = await saveClient(
       null,
-      form({ name: "", hourlyRate: "1200", bokioCustomerId: "cust-1", invoiceItemName: "x" }),
+      form({ hourlyRate: "1200", bokioCustomerId: "", invoiceItemName: "x" }),
     );
 
     expect(result.ok).toBe(false);
+    expect(getCustomer).not.toHaveBeenCalled();
     expect(listClients(db)).toHaveLength(0);
   });
 
@@ -157,7 +166,7 @@ describe("clients actions", () => {
   it("saveClient verifies the customer id against Bokio and passes it through", async () => {
     await saveClient(
       null,
-      form({ name: " Acme ", hourlyRate: "1200", bokioCustomerId: "cust-1", invoiceItemName: "" }),
+      form({ hourlyRate: "1200", bokioCustomerId: "cust-1", invoiceItemName: "" }),
     );
 
     expect(getCustomer).toHaveBeenCalledWith("cust-1");
@@ -168,7 +177,7 @@ describe("clients actions", () => {
 
     const result = await saveClient(
       null,
-      form({ name: "Acme", hourlyRate: "1200", bokioCustomerId: "nope", invoiceItemName: "" }),
+      form({ hourlyRate: "1200", bokioCustomerId: "nope", invoiceItemName: "" }),
     );
 
     expect(result).toEqual({ ok: false, error: "Kund-ID finns inte i Bokio" });
@@ -180,7 +189,7 @@ describe("clients actions", () => {
 
     const result = await saveClient(
       null,
-      form({ name: "Acme", hourlyRate: "1200", bokioCustomerId: "cust-1", invoiceItemName: "" }),
+      form({ hourlyRate: "1200", bokioCustomerId: "cust-1", invoiceItemName: "" }),
     );
 
     expect(result.ok).toBe(false);

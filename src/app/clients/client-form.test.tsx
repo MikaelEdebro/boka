@@ -73,13 +73,13 @@ describe("ClientForm", () => {
   });
 
   it("toasts the error reason when the action fails", async () => {
-    saveClient.mockResolvedValue({ ok: false, error: "Namn krävs." });
+    saveClient.mockResolvedValue({ ok: false, error: "Bokio kund-ID krävs." });
     const user = userEvent.setup();
 
     render(<ClientForm bokioCustomers={customers} />);
     await user.click(screen.getByRole("button", { name: "Lägg till kund" }));
 
-    await waitFor(() => expect(error).toHaveBeenCalledWith("Namn krävs."));
+    await waitFor(() => expect(error).toHaveBeenCalledWith("Bokio kund-ID krävs."));
     expect(success).not.toHaveBeenCalled();
   });
 
@@ -94,32 +94,32 @@ describe("ClientForm", () => {
     expect(screen.queryByRole("textbox", { name: /kund-ID/ })).not.toBeInTheDocument();
   });
 
-  it("submits the chosen customer id and fills an empty name", async () => {
+  it("has no name input and submits only customer id, rate and invoice row", async () => {
     saveClient.mockResolvedValue({ ok: true });
     const user = userEvent.setup();
 
     render(<ClientForm bokioCustomers={customers} />);
+    expect(screen.queryByLabelText("Namn")).not.toBeInTheDocument();
+
     await user.selectOptions(screen.getByRole("combobox", { name: "Bokio-kund" }), "c-7");
-
-    expect(screen.getByLabelText("Namn")).toHaveValue("Globex");
     expect(screen.getByText("c-7")).toBeInTheDocument();
-
+    await user.type(screen.getByLabelText("Timpris (SEK)"), "1200");
+    await user.type(screen.getByLabelText("Fakturarad"), "Konsult");
     await user.click(screen.getByRole("button", { name: "Lägg till kund" }));
 
     await waitFor(() => expect(saveClient).toHaveBeenCalled());
     const submitted = saveClient.mock.calls[0][1];
+    expect([...submitted.keys()].sort()).toEqual(["bokioCustomerId", "hourlyRate", "invoiceItemName"]);
     expect(submitted.get("bokioCustomerId")).toBe("c-7");
-    expect(submitted.get("name")).toBe("Globex");
+    expect(submitted.get("hourlyRate")).toBe("1200");
+    expect(submitted.get("invoiceItemName")).toBe("Konsult");
   });
 
-  it("keeps a typed name when a customer is picked", async () => {
-    const user = userEvent.setup();
+  it("puts the Bokio-kund select first", () => {
+    const { container } = render(<ClientForm bokioCustomers={customers} />);
 
-    render(<ClientForm bokioCustomers={customers} />);
-    await user.type(screen.getByLabelText("Namn"), "Egen");
-    await user.selectOptions(screen.getByRole("combobox", { name: "Bokio-kund" }), "c-1");
-
-    expect(screen.getByLabelText("Namn")).toHaveValue("Egen");
+    const firstField = container.querySelector("select, input:not([type=hidden])");
+    expect(firstField).toBe(screen.getByRole("combobox", { name: "Bokio-kund" }));
   });
 
   it("selects the stored customer when editing", () => {
@@ -137,10 +137,7 @@ describe("ClientForm", () => {
     expect(screen.getByRole("combobox", { name: "Bokio-kund" })).toHaveValue("gone-42");
   });
 
-  it("disables the select and explains why when Bokio customers could not be loaded", async () => {
-    saveClient.mockResolvedValue({ ok: false, error: "Bokio kund-ID krävs." });
-    const user = userEvent.setup();
-
+  it("disables the select and the submit button when Bokio customers could not be loaded", () => {
     render(
       <ClientForm bokioCustomers={{ ok: false, error: "Bokio svarade 403 Forbidden" }} />,
     );
@@ -148,9 +145,6 @@ describe("ClientForm", () => {
     expect(screen.getByRole("combobox", { name: "Bokio-kund" })).toBeDisabled();
     expect(screen.getByText("Kunde inte hämta kunder från Bokio")).toBeInTheDocument();
     expect(screen.getByText("Bokio svarade 403 Forbidden")).toBeInTheDocument();
-    expect(screen.getByLabelText("Namn")).toBeEnabled();
-
-    await user.click(screen.getByRole("button", { name: "Lägg till kund" }));
-    await waitFor(() => expect(saveClient).toHaveBeenCalled());
+    expect(screen.getByRole("button", { name: "Lägg till kund" })).toBeDisabled();
   });
 });

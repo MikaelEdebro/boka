@@ -16,10 +16,13 @@ export default async function EditClientPage({
   if (!client) notFound();
   await connection();
   const bokioCustomers = await loadBokioCustomerList();
+  const bokioCustomer = bokioCustomers.ok
+    ? bokioCustomers.customers.find((customer) => customer.id === client.bokioCustomerId)
+    : undefined;
 
   return (
     <>
-      <h1 className="mb-6 text-2xl font-semibold">Redigera kund</h1>
+      <h1 className="mb-6 text-2xl font-semibold">{bokioCustomer?.name ?? client.name}</h1>
 
       <ClientForm client={client} bokioCustomers={bokioCustomers} />
 

@@ -11,15 +11,14 @@ import {
   upsertClient,
 } from "@/db/clients";
 import type { ActionResult } from "@/lib/actionResult";
-import { parseClient } from "@/lib/clients";
+import { parseClient, parseClientForm } from "@/lib/clients";
 
 export async function saveClient(
   _prev: ActionResult | null,
   formData: FormData,
 ): Promise<ActionResult> {
   try {
-    const values = parseClient({
-      name: formData.get("name"),
+    const values = parseClientForm({
       hourlyRate: formData.get("hourlyRate"),
       bokioCustomerId: formData.get("bokioCustomerId"),
       invoiceItemName: formData.get("invoiceItemName"),
@@ -32,7 +31,7 @@ export async function saveClient(
     }
     const idValue = formData.get("id");
     const id = typeof idValue === "string" && idValue !== "" ? Number(idValue) : undefined;
-    upsertClient(getDb(), { ...values, id });
+    upsertClient(getDb(), { ...parseClient({ ...values, name: customer.name }), id });
     revalidatePath("/clients");
     return { ok: true };
   } catch (error) {
