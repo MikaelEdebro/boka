@@ -1,1 +1,3 @@
-export type ActionResult = { ok: true } | { ok: false; error: string };
+export type ActionResult<Data extends object = object> =
+  | ({ ok: true } & Data)
+  | { ok: false; error: string };

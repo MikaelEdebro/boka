@@ -4,7 +4,13 @@ import { revalidatePath } from "next/cache";
 import { createInvoice, getInvoice } from "@/bokio/client";
 import { getDb } from "@/db/client";
 import { getClient } from "@/db/clients";
-import { getWorkDays, insertInvoice, listInvoices, updateInvoiceStatus } from "@/db/invoices";
+import {
+  deleteInvoice,
+  getWorkDays,
+  insertInvoice,
+  listInvoices,
+  updateInvoiceStatus,
+} from "@/db/invoices";
 import { listWeekReports } from "@/db/weekReports";
 import {
   aggregateMonth,
@@ -31,7 +37,9 @@ export async function createInvoiceForMonth(
   }
 }
 
-export async function refreshInvoiceStatuses(): Promise<ActionResult> {
+export type RefreshInvoiceStatusesResult = ActionResult<{ removed: number }>;
+
+export async function refreshInvoiceStatuses(): Promise<RefreshInvoiceStatusesResult> {
   try {
     const secrets = getSecretsStatus();
     if (!secrets.bokioToken || !secrets.bokioCompanyId) {
@@ -40,17 +48,23 @@ export async function refreshInvoiceStatuses(): Promise<ActionResult> {
 
     const db = getDb();
     const checkedAt = new Date().toISOString();
+    let removed = 0;
     for (const row of listInvoices(db)) {
       const invoice = await getInvoice(row.bokioInvoiceId);
+      if (invoice === null) {
+        deleteInvoice(db, row.id);
+        removed++;
+        continue;
+      }
       updateInvoiceStatus(db, row.id, {
-        bokioStatus: invoice === null ? "deleted" : invoice.status,
-        bokioInvoiceNumber: invoice?.invoiceNumber ?? null,
+        bokioStatus: invoice.status,
+        bokioInvoiceNumber: invoice.invoiceNumber,
         statusCheckedAt: checkedAt,
       });
     }
 
     revalidatePath("/invoices");
-    return { ok: true };
+    return { ok: true, removed };
   } catch (error) {
     console.error("refreshInvoiceStatuses failed:", error);
     return {

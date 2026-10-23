@@ -65,14 +65,16 @@ export function invoicedKey(yearMonth: string, clientId: number): string {
   return `${yearMonth}:${clientId}`;
 }
 
-export function invoicedKeys(
-  invoices: { periodStart: string; clientId: number; bokioStatus?: string | null }[],
-): Set<string> {
+export function invoicedKeys(invoices: { periodStart: string; clientId: number }[]): Set<string> {
   return new Set(
-    invoices
-      .filter((invoice) => invoice.bokioStatus !== "deleted")
-      .map((invoice) => invoicedKey(monthKey(invoice.periodStart), invoice.clientId)),
+    invoices.map((invoice) => invoicedKey(monthKey(invoice.periodStart), invoice.clientId)),
   );
+}
+
+export function refreshStatusMessage(removed: number): string {
+  if (removed === 0) return "Status uppdaterad från Bokio";
+  if (removed === 1) return "1 faktura borttagen i Bokio togs bort";
+  return `${removed} fakturor borttagna i Bokio togs bort`;
 }
 
 type WorkEntry = AggregationEntry & { hours: number; clientId: number };

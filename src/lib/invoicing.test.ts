@@ -8,6 +8,7 @@ import {
   monthKey,
   monthPeriod,
   parseYearMonth,
+  refreshStatusMessage,
   uninvoicedMonths,
   type AggregationEntry,
 } from "@/lib/invoicing";
@@ -74,14 +75,6 @@ describe("invoicedKeys", () => {
       { periodStart: "2026-10-15", clientId: 2 },
     ]);
     expect(keys).toEqual(new Set(["2026-10:1", "2026-10:2"]));
-  });
-
-  it("ignores invoices deleted in Bokio so the month can be re-invoiced", () => {
-    const keys = invoicedKeys([
-      { periodStart: "2026-10-01", clientId: 1, bokioStatus: "deleted" },
-      { periodStart: "2026-10-15", clientId: 2, bokioStatus: "published" },
-    ]);
-    expect(keys).toEqual(new Set(["2026-10:2"]));
   });
 });
 
@@ -167,5 +160,16 @@ describe("uninvoicedMonths", () => {
       { date: "2026-10-20", type: "vacation", hours: null, clientId: null },
     ];
     expect(uninvoicedMonths(vacationOnly, submittedAll, clients, new Set())).toEqual([]);
+  });
+});
+
+describe("refreshStatusMessage", () => {
+  it("reports how many invoices deleted in Bokio were removed", () => {
+    expect(refreshStatusMessage(1)).toBe("1 faktura borttagen i Bokio togs bort");
+    expect(refreshStatusMessage(3)).toBe("3 fakturor borttagna i Bokio togs bort");
+  });
+
+  it("falls back to the plain status message when nothing was removed", () => {
+    expect(refreshStatusMessage(0)).toBe("Status uppdaterad från Bokio");
   });
 });

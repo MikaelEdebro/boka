@@ -24,6 +24,10 @@ export function updateInvoiceStatus(db: Db, id: number, values: InvoiceStatusUpd
   db.update(invoices).set(values).where(eq(invoices.id, id)).run();
 }
 
+export function deleteInvoice(db: Db, id: number): void {
+  db.delete(invoices).where(eq(invoices.id, id)).run();
+}
+
 export function insertInvoice(
   db: Db,
   values: NewInvoice,

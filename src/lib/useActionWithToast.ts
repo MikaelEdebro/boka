@@ -4,14 +4,19 @@ import { useActionState } from "react";
 import { toast } from "sonner";
 import type { ActionResult } from "@/lib/actionResult";
 
-export function useActionWithToast<Payload = FormData>(
-  action: (prev: ActionResult | null, payload: Payload) => Promise<ActionResult>,
-  { success }: { success: string },
+export function useActionWithToast<Payload = FormData, Result extends ActionResult = ActionResult>(
+  action: (prev: Result | null, payload: Payload) => Promise<Result>,
+  { success }: { success: string | ((result: Extract<Result, { ok: true }>) => string) },
 ) {
-  return useActionState<ActionResult | null, Payload>(async (prev, payload) => {
+  return useActionState<Result | null, Payload>(async (prev, payload) => {
     const result = await action(prev, payload);
-    if (result.ok) toast.success(success);
-    else toast.error(result.error);
+    if (result.ok) {
+      toast.success(
+        typeof success === "string" ? success : success(result as Extract<Result, { ok: true }>),
+      );
+    } else {
+      toast.error(result.error);
+    }
     return result;
   }, null);
 }

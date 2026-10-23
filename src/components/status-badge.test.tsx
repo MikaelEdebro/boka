@@ -12,7 +12,6 @@ describe("invoiceStatusBadge", () => {
     ["overdue", "Förfallen"],
     ["credited", "Krediterad"],
     ["credit", "Krediterad"],
-    ["deleted", "Borttagen i Bokio"],
   ])("maps %s to %s", (status, label) => {
     expect(invoiceStatusBadge(status).label).toBe(label);
   });
@@ -23,8 +22,7 @@ describe("invoiceStatusBadge", () => {
     expect(invoiceStatusBadge("somethingNew").label).toBe("Okänd");
   });
 
-  it("uses a red style for deleted and blue for published", () => {
-    expect(invoiceStatusBadge("deleted").className).toMatch(/red/);
+  it("uses a blue style for published", () => {
     expect(invoiceStatusBadge("published").className).toMatch(/blue/);
   });
 });

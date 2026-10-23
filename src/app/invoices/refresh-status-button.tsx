@@ -1,12 +1,13 @@
 "use client";
 
 import { SubmitButton } from "@/components/submit-button";
+import { refreshStatusMessage } from "@/lib/invoicing";
 import { useActionWithToast } from "@/lib/useActionWithToast";
 import { refreshInvoiceStatuses } from "./actions";
 
 export function RefreshStatusButton() {
   const [, formAction] = useActionWithToast(() => refreshInvoiceStatuses(), {
-    success: "Status uppdaterad från Bokio",
+    success: ({ removed }) => refreshStatusMessage(removed),
   });
 
   return (

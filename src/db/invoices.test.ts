@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { dayEntries } from "@/db/schema";
 import { upsertClient } from "@/db/clients";
-import { getWorkDays, insertInvoice, listInvoices, updateInvoiceStatus } from "@/db/invoices";
+import { deleteInvoice, getWorkDays, insertInvoice, listInvoices, updateInvoiceStatus } from "@/db/invoices";
 import { testDb } from "@/test/db";
 import type { Db } from "@/db/client";
 
@@ -84,6 +84,18 @@ describe("invoices db", () => {
       bokioInvoiceNumber: "123",
       statusCheckedAt: "2026-11-01T09:00:00.000Z",
     });
+  });
+
+  it("deletes a single invoice row by id", () => {
+    const db = testDb();
+    const clientId = seedClient(db);
+    const values = { periodEnd: "2026-10-31", hours: 120, clientId };
+    const kept = insertInvoice(db, { ...values, bokioInvoiceId: "a", periodStart: "2026-09-01" });
+    const removed = insertInvoice(db, { ...values, bokioInvoiceId: "b", periodStart: "2026-10-01" });
+
+    deleteInvoice(db, removed.id);
+
+    expect(listInvoices(db).map((i) => i.id)).toEqual([kept.id]);
   });
 
   it("returns only work-day entries with their client", () => {

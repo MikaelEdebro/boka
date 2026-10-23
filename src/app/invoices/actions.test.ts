@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { dayEntries, invoices, type Client } from "@/db/schema";
 import { upsertClient } from "@/db/clients";
-import { insertInvoice } from "@/db/invoices";
+import { insertInvoice, updateInvoiceStatus } from "@/db/invoices";
 import { submitWeekReport } from "@/db/weekReports";
 import { testDb } from "@/test/db";
 import type { Db } from "@/db/client";
@@ -230,7 +230,7 @@ describe("refreshInvoiceStatuses", () => {
 
     const result = await refreshInvoiceStatuses();
 
-    expect(result).toEqual({ ok: true });
+    expect(result).toEqual({ ok: true, removed: 0 });
     expect(getInvoice).toHaveBeenCalledWith("inv-1");
     const updated = db.select().from(invoices).all()[0];
     expect(updated).toMatchObject({
@@ -242,18 +242,46 @@ describe("refreshInvoiceStatuses", () => {
     expect(revalidatePath).toHaveBeenCalledWith("/invoices");
   });
 
-  it("marks an invoice deleted when Bokio no longer has it (404 → null)", async () => {
-    defaultClientId = addClient().id;
-    vi.stubEnv("BOKIO_TOKEN", "token");
-    vi.stubEnv("BOKIO_COMPANY_ID", "company");
+  it("removes invoices Bokio no longer has (404 → null) and reports how many", async () => {
+    configure();
+    const kept = seedInvoice("inv-1", defaultClientId);
     seedInvoice("gone", defaultClientId);
+    getInvoice.mockImplementation(async (id: string) =>
+      id === "gone" ? null : { status: "draft", invoiceNumber: null },
+    );
+
+    expect(await refreshInvoiceStatuses()).toEqual({ ok: true, removed: 1 });
+
+    const rows = db.select().from(invoices).all();
+    expect(rows.map((r) => r.id)).toEqual([kept.id]);
+    expect(rows[0].bokioStatus).toBe("draft");
+  });
+
+  it("removes rows stored with the old deleted status once Bokio returns 404", async () => {
+    configure();
+    const row = seedInvoice("gone", defaultClientId);
+    updateInvoiceStatus(db, row.id, {
+      bokioStatus: "deleted",
+      bokioInvoiceNumber: null,
+      statusCheckedAt: "2026-10-01T00:00:00.000Z",
+    });
     getInvoice.mockResolvedValue(null);
 
-    expect(await refreshInvoiceStatuses()).toEqual({ ok: true });
+    expect(await refreshInvoiceStatuses()).toEqual({ ok: true, removed: 1 });
+    expect(db.select().from(invoices).all()).toHaveLength(0);
+  });
 
-    const updated = db.select().from(invoices).all()[0];
-    expect(updated.bokioStatus).toBe("deleted");
-    expect(updated.bokioInvoiceNumber).toBeNull();
+  it("makes a month invoiceable again after its invoice was removed in Bokio", async () => {
+    configure();
+    seedSubmittedWorkWeek();
+    seedInvoice("gone", defaultClientId);
+    getInvoice.mockResolvedValue(null);
+    createInvoice.mockReset().mockResolvedValue("inv-new");
+
+    await refreshInvoiceStatuses();
+
+    expect(await createInvoiceForMonth("2026-10", defaultClientId)).toEqual({ ok: true });
+    expect(db.select().from(invoices).all().map((r) => r.bokioInvoiceId)).toEqual(["inv-new"]);
   });
 
   it("refuses when Bokio env secrets are missing", async () => {

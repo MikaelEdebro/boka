@@ -20,10 +20,6 @@ const STATUS_BADGES: Record<string, BadgeStyle> = {
   },
   credited: { label: "Krediterad", className: GREY },
   credit: { label: "Krediterad", className: GREY },
-  deleted: {
-    label: "Borttagen i Bokio",
-    className: "bg-red-100 text-red-900 dark:bg-red-950 dark:text-red-100",
-  },
 };
 
 const UNKNOWN: BadgeStyle = { label: "Okänd", className: GREY };
