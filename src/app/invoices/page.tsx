@@ -47,7 +47,7 @@ export default async function InvoicesPage() {
 
   // Best-effort auto-refresh: a Bokio failure must not break the page, it just
   // keeps the last known status (the action logs/toasts per #26).
-  if (envReady && statusesAreStale(listInvoices(db), new Date().getTime())) {
+  if (envReady && statusesAreStale(listInvoices(db), Date.now())) {
     await refreshInvoiceStatuses();
   }
 

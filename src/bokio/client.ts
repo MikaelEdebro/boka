@@ -142,22 +142,8 @@ const invoiceResponseSchema = z.object({
   status: z.string(),
 });
 
-/**
- * Documented Bokio invoice statuses. The schema keeps the raw string so an
- * unknown value never throws; the badge mapping turns anything unexpected
- * into "Okänd".
- */
-export const BOKIO_INVOICE_STATUSES = [
-  "draft",
-  "published",
-  "paid",
-  "overPaid",
-  "underPaid",
-  "overdue",
-  "credited",
-  "credit",
-] as const;
-
+// status stays a raw string so an unexpected Bokio value never throws here;
+// the badge mapping turns anything unknown into "Okänd".
 const invoiceStatusSchema = z
   .object({
     status: z.string(),
