@@ -51,6 +51,13 @@ describe("InvoicesPage", () => {
     expect(screen.getByText("Inga fakturor skapade ännu.")).toBeInTheDocument();
   });
 
+  it("does not link to settings, the main nav already does", async () => {
+    seedConfig();
+    render(await InvoicesPage());
+
+    expect(screen.queryByRole("link", { name: "Inställningar" })).not.toBeInTheDocument();
+  });
+
   it("lists a ready month with hours and amount and an enabled button", async () => {
     const clientId = seedConfig();
     const db = getDb();

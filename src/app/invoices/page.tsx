@@ -1,6 +1,5 @@
 import { format, parseISO } from "date-fns";
 import { AlertTriangle } from "lucide-react";
-import Link from "next/link";
 import { connection } from "next/server";
 import { StatusBadge } from "@/components/status-badge";
 import { getDb } from "@/db/client";
@@ -249,12 +248,6 @@ export default async function InvoicesPage() {
           </ul>
         )}
       </section>
-
-      <p className="mt-8 text-sm">
-        <Link href="/settings" className="text-muted-foreground hover:text-foreground">
-          Inställningar
-        </Link>
-      </p>
     </>
   );
 }
