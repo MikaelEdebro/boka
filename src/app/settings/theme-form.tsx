@@ -1,6 +1,6 @@
 "use client";
 
-import { SubmitButton } from "@/components/submit-button";
+import { useRef } from "react";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import type { Theme } from "@/db/schema";
@@ -14,16 +14,21 @@ const THEME_OPTIONS: { value: Theme; label: string }[] = [
 ];
 
 export function ThemeForm({ theme }: { theme: Theme }) {
-  const [, formAction] = useActionWithToast(saveSettings, { success: "Inställningar sparade" });
+  const formRef = useRef<HTMLFormElement>(null);
+  const [, formAction, pending] = useActionWithToast(saveSettings, {
+    success: "Inställningar sparade",
+  });
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form ref={formRef} action={formAction} className="space-y-4">
       <h2 id="theme-label" className="text-sm font-medium text-muted-foreground">
         Tema
       </h2>
       <RadioGroup
         name="theme"
         defaultValue={theme}
+        onValueChange={() => formRef.current?.requestSubmit()}
+        disabled={pending}
         aria-labelledby="theme-label"
         className="flex flex-wrap gap-6"
       >
@@ -34,9 +39,6 @@ export function ThemeForm({ theme }: { theme: Theme }) {
           </Label>
         ))}
       </RadioGroup>
-      <div className="flex justify-end">
-        <SubmitButton>Spara</SubmitButton>
-      </div>
     </form>
   );
 }

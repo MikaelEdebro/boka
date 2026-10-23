@@ -3,7 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ActionResult } from "@/lib/actionResult";
 
-const saveSettings = vi.fn<(prev: ActionResult | null, formData: FormData) => Promise<ActionResult>>();
+const saveSettings =
+  vi.fn<(prev: ActionResult | null, formData: FormData) => Promise<ActionResult>>();
 vi.mock("./actions", () => ({
   saveSettings: (prev: ActionResult | null, formData: FormData) => saveSettings(prev, formData),
 }));
@@ -43,11 +44,43 @@ describe("ThemeForm", () => {
     render(<ThemeForm theme={value === "system" ? "light" : "system"} />);
 
     await user.click(screen.getByRole("radio", { name: label }));
-    await user.click(screen.getByRole("button", { name: "Spara" }));
 
-    await waitFor(() => expect(saveSettings).toHaveBeenCalled());
+    await waitFor(() => expect(saveSettings).toHaveBeenCalledTimes(1));
     expect(saveSettings.mock.calls[0][1].get("theme")).toBe(value);
     await waitFor(() => expect(success).toHaveBeenCalledWith("Inställningar sparade"));
+    expect(success).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders no submit button", () => {
+    render(<ThemeForm theme="system" />);
+
+    expect(screen.queryByRole("button", { name: "Spara" })).not.toBeInTheDocument();
+  });
+
+  it("does not save on mount", () => {
+    render(<ThemeForm theme="system" />);
+
+    expect(saveSettings).not.toHaveBeenCalled();
+  });
+
+  it("disables the options while saving", async () => {
+    let resolve: (result: ActionResult) => void = () => {};
+    saveSettings.mockReturnValue(new Promise((r) => (resolve = r)));
+    const user = userEvent.setup();
+    render(<ThemeForm theme="system" />);
+
+    await user.click(screen.getByRole("radio", { name: "Mörkt" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("radio", { name: "Ljust" })).toHaveAttribute("aria-disabled", "true"),
+    );
+    resolve({ ok: true });
+    await waitFor(() =>
+      expect(screen.getByRole("radio", { name: "Ljust" })).not.toHaveAttribute(
+        "aria-disabled",
+        "true",
+      ),
+    );
   });
 
   it("toasts the error when saving fails", async () => {
@@ -55,7 +88,7 @@ describe("ThemeForm", () => {
     const user = userEvent.setup();
     render(<ThemeForm theme="system" />);
 
-    await user.click(screen.getByRole("button", { name: "Spara" }));
+    await user.click(screen.getByRole("radio", { name: "Mörkt" }));
 
     await waitFor(() => expect(error).toHaveBeenCalledWith("Ogiltigt tema."));
   });
