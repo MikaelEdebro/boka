@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { connection } from "next/server";
 import { inArray } from "drizzle-orm";
+import { buttonVariants } from "@/components/ui/button";
 import { getDb } from "@/db/client";
 import { listClients } from "@/db/clients";
 import { getVabNotes } from "@/db/dayEntries";
@@ -8,6 +10,7 @@ import { type DayEntry, dayEntries } from "@/db/schema";
 import { getWeekReport } from "@/db/weekReports";
 import { isSwedishHoliday } from "@/lib/holidays";
 import {
+  currentWeek,
   formatDate,
   formatWeek,
   nextWeek,
@@ -27,6 +30,10 @@ export default async function WeekPage({
   const { week: weekParam } = await params;
   const week = parseWeek(weekParam);
   if (!week) notFound();
+
+  await connection();
+  const today = currentWeek();
+  const isCurrentWeek = today.year === week.year && today.week === week.week;
 
   const dates = weekDays(week).map(formatDate);
 
@@ -75,12 +82,19 @@ export default async function WeekPage({
         >
           ← Föregående
         </Link>
-        <h1 className="text-xl font-semibold">
-          Vecka {week.week},{" "}
-          <Link href={`/year/${week.year}`} className="hover:underline">
-            {week.year}
-          </Link>
-        </h1>
+        <div className="flex flex-col items-center gap-1">
+          <h1 className="text-xl font-semibold">
+            Vecka {week.week},{" "}
+            <Link href={`/year/${week.year}`} className="hover:underline">
+              {week.year}
+            </Link>
+          </h1>
+          {!isCurrentWeek && (
+            <Link href="/week" className={buttonVariants({ variant: "outline", size: "sm" })}>
+              Aktuell vecka
+            </Link>
+          )}
+        </div>
         <Link
           href={`/week/${formatWeek(nextWeek(week))}`}
           className="text-sm text-muted-foreground hover:text-foreground"

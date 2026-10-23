@@ -166,6 +166,24 @@ describe("YearPage", () => {
     expect(oktober).not.toHaveClass("bg-muted/50");
   });
 
+  it("links to the current year when showing another year", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-15T12:00:00Z"));
+
+    render(await YearPage({ params: Promise.resolve({ year: "2025" }) }));
+
+    expect(screen.getByRole("link", { name: "Aktuellt år" })).toHaveAttribute("href", "/year");
+  });
+
+  it("hides the current year link when showing the current year", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-15T12:00:00Z"));
+
+    render(await YearPage({ params: Promise.resolve({ year: "2026" }) }));
+
+    expect(screen.queryByRole("link", { name: "Aktuellt år" })).not.toBeInTheDocument();
+  });
+
   it("renders the totals row in semibold", async () => {
     render(await YearPage({ params: Promise.resolve({ year: "2026" }) }));
 

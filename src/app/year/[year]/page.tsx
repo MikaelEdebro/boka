@@ -2,6 +2,7 @@ import { Check } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
+import { buttonVariants } from "@/components/ui/button";
 import { getDb } from "@/db/client";
 import { listClients } from "@/db/clients";
 import { getYearEntries } from "@/db/dayEntries";
@@ -9,6 +10,7 @@ import { listInvoices } from "@/db/invoices";
 import { DAY_TYPE_LABELS, MONTH_LABELS } from "@/lib/labels";
 import { invoicedMonths, summarizeYear, vabDaysByMonth } from "@/lib/summary";
 import { cn } from "@/lib/utils";
+import { currentWeek } from "@/lib/week";
 
 const YEAR_RE = /^\d{4}$/;
 
@@ -28,6 +30,7 @@ export default async function YearPage({
   await connection();
   const now = new Date();
   const currentMonth = now.getFullYear() === year ? now.getMonth() + 1 : null;
+  const isCurrentYear = currentWeek().year === year;
 
   const db = getDb();
   const entries = getYearEntries(db, year);
@@ -54,7 +57,14 @@ export default async function YearPage({
         >
           ← {year - 1}
         </Link>
-        <h1 className="text-2xl font-semibold">År {year}</h1>
+        <div className="flex flex-col items-center gap-1">
+          <h1 className="text-2xl font-semibold">År {year}</h1>
+          {!isCurrentYear && (
+            <Link href="/year" className={buttonVariants({ variant: "outline", size: "sm" })}>
+              Aktuellt år
+            </Link>
+          )}
+        </div>
         <Link
           href={`/year/${year + 1}`}
           className="text-sm text-muted-foreground hover:text-foreground"

@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { getDb } from "@/db/client";
 import { dayEntries } from "@/db/schema";
 import WeekPage from "./page";
@@ -8,6 +8,11 @@ const notFound = vi.hoisted(() => vi.fn(() => {
   throw new Error("NEXT_NOT_FOUND");
 }));
 vi.mock("next/navigation", () => ({ notFound }));
+vi.mock("next/server", () => ({ connection: vi.fn(async () => {}) }));
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 function renderWeek(week: string) {
   return WeekPage({ params: Promise.resolve({ week }) });
@@ -55,6 +60,27 @@ describe("WeekPage", () => {
       "href",
       "/week/2026-W44",
     );
+  });
+
+  it("links to the current week when showing another week", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-21T12:00:00Z"));
+
+    render(await renderWeek("2026-W40"));
+
+    expect(screen.getByRole("link", { name: "Aktuell vecka" })).toHaveAttribute(
+      "href",
+      "/week",
+    );
+  });
+
+  it("hides the current week link when showing the current week", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-21T12:00:00Z"));
+
+    render(await renderWeek("2026-W43"));
+
+    expect(screen.queryByRole("link", { name: "Aktuell vecka" })).not.toBeInTheDocument();
   });
 
   it("calls notFound for an invalid week param", async () => {
