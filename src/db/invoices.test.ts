@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { dayEntries } from "@/db/schema";
 import { upsertClient } from "@/db/clients";
-import { getWorkDays, insertInvoice, listInvoices } from "@/db/invoices";
+import { getWorkDays, insertInvoice, listInvoices, updateInvoiceStatus } from "@/db/invoices";
 import { testDb } from "@/test/db";
 import type { Db } from "@/db/client";
 
@@ -58,6 +58,32 @@ describe("invoices db", () => {
       clientId,
     });
     expect(listInvoices(db).map((i) => i.periodStart)).toEqual(["2026-10-01", "2026-09-01"]);
+  });
+
+  it("updates the Bokio status columns of an invoice row", () => {
+    const db = testDb();
+    const clientId = seedClient(db);
+    const invoice = insertInvoice(db, {
+      bokioInvoiceId: "inv-1",
+      periodStart: "2026-10-01",
+      periodEnd: "2026-10-31",
+      hours: 120,
+      clientId,
+    });
+    expect(invoice.bokioStatus).toBeNull();
+
+    updateInvoiceStatus(db, invoice.id, {
+      bokioStatus: "published",
+      bokioInvoiceNumber: "123",
+      statusCheckedAt: "2026-11-01T09:00:00.000Z",
+    });
+
+    const [row] = listInvoices(db);
+    expect(row).toMatchObject({
+      bokioStatus: "published",
+      bokioInvoiceNumber: "123",
+      statusCheckedAt: "2026-11-01T09:00:00.000Z",
+    });
   });
 
   it("returns only work-day entries with their client", () => {

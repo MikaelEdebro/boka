@@ -66,10 +66,12 @@ export function invoicedKey(yearMonth: string, clientId: number): string {
 }
 
 export function invoicedKeys(
-  invoices: { periodStart: string; clientId: number }[],
+  invoices: { periodStart: string; clientId: number; bokioStatus?: string | null }[],
 ): Set<string> {
   return new Set(
-    invoices.map((invoice) => invoicedKey(monthKey(invoice.periodStart), invoice.clientId)),
+    invoices
+      .filter((invoice) => invoice.bokioStatus !== "deleted")
+      .map((invoice) => invoicedKey(monthKey(invoice.periodStart), invoice.clientId)),
   );
 }
 

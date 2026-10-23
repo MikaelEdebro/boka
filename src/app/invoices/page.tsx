@@ -1,7 +1,11 @@
+import { format, parseISO } from "date-fns";
 import Link from "next/link";
+import { connection } from "next/server";
+import { StatusBadge } from "@/components/status-badge";
 import { getDb } from "@/db/client";
 import { listClients } from "@/db/clients";
 import { getWorkDays, listInvoices } from "@/db/invoices";
+import type { Invoice } from "@/db/schema";
 import { listWeekReports } from "@/db/weekReports";
 import {
   invoicedKey,
@@ -14,6 +18,8 @@ import {
 import { getSecretsStatus } from "@/lib/settings";
 import { formatWeek } from "@/lib/week";
 import { CreateInvoiceButton } from "./create-invoice-button";
+import { refreshInvoiceStatuses } from "./actions";
+import { RefreshStatusButton } from "./refresh-status-button";
 
 const currency = new Intl.NumberFormat("sv-SE", {
   style: "currency",
@@ -21,19 +27,38 @@ const currency = new Intl.NumberFormat("sv-SE", {
   maximumFractionDigits: 0,
 });
 
-export default function InvoicesPage() {
+const ONE_HOUR_MS = 60 * 60 * 1000;
+
+function statusesAreStale(invoices: Invoice[], now: number): boolean {
+  if (invoices.length === 0) return false;
+  return invoices.some(
+    (invoice) =>
+      invoice.statusCheckedAt === null ||
+      now - new Date(invoice.statusCheckedAt).getTime() > ONE_HOUR_MS,
+  );
+}
+
+export default async function InvoicesPage() {
+  await connection();
+
   const db = getDb();
+  const secrets = getSecretsStatus();
+  const envReady = Boolean(secrets.bokioToken && secrets.bokioCompanyId);
+
+  // Best-effort auto-refresh: a Bokio failure must not break the page, it just
+  // keeps the last known status (the action logs/toasts per #26).
+  if (envReady && statusesAreStale(listInvoices(db), new Date().getTime())) {
+    await refreshInvoiceStatuses();
+  }
+
   const clients = listClients(db);
   const clientsById = new Map(clients.map((client) => [client.id, client]));
-  const secrets = getSecretsStatus();
 
   const submittedWeeks = new Set(
     listWeekReports(db).map((report) => formatWeek({ year: report.isoYear, week: report.isoWeek })),
   );
   const invoices = listInvoices(db);
   const months = uninvoicedMonths(getWorkDays(db), submittedWeeks, clients, invoicedKeys(invoices));
-
-  const envReady = Boolean(secrets.bokioToken && secrets.bokioCompanyId);
 
   function blockedReason(month: MonthAggregation): string | null {
     if (!envReady) return "Bokio-nycklar saknas i .env.";
@@ -94,7 +119,10 @@ export default function InvoicesPage() {
       </section>
 
       <section className="mt-8 border-t border-border pt-6">
-        <h2 className="mb-3 text-sm font-medium text-muted-foreground">Skapade fakturor</h2>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-medium text-muted-foreground">Skapade fakturor</h2>
+          {invoices.length > 0 && envReady && <RefreshStatusButton />}
+        </div>
         {invoices.length === 0 ? (
           <p className="text-sm text-muted-foreground">Inga fakturor skapade ännu.</p>
         ) : (
@@ -108,10 +136,23 @@ export default function InvoicesPage() {
                   <p className="text-sm text-muted-foreground">
                     {invoice.hours} h · {invoice.periodStart}–{invoice.periodEnd}
                   </p>
+                  {invoice.statusCheckedAt && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Kontrollerad {format(parseISO(invoice.statusCheckedAt), "yyyy-MM-dd HH:mm")}
+                    </p>
+                  )}
                 </div>
-                <span className="font-mono text-sm text-muted-foreground">
-                  {invoice.bokioInvoiceId}
-                </span>
+                <div className="flex flex-col items-end gap-1">
+                  <StatusBadge status={invoice.bokioStatus} />
+                  {invoice.bokioInvoiceNumber && (
+                    <span className="text-sm text-muted-foreground">
+                      Fakturanr {invoice.bokioInvoiceNumber}
+                    </span>
+                  )}
+                  <span className="font-mono text-xs text-muted-foreground">
+                    {invoice.bokioInvoiceId}
+                  </span>
+                </div>
               </li>
             ))}
           </ul>

@@ -102,3 +102,35 @@ describe("0003 invoices.client_id backfill", () => {
     db.close();
   });
 });
+
+describe("0004 invoice status columns", () => {
+  it("adds nullable status columns leaving existing invoices null", () => {
+    const db = new Database(":memory:");
+    db.exec(migrationSql("0000"));
+    db.exec(migrationSql("0001"));
+    db.exec(migrationSql("0002"));
+    db.exec(migrationSql("0003"));
+
+    db.prepare(
+      `INSERT INTO clients (name, hourly_rate, bokio_customer_id, invoice_item_name, is_default, created_at)
+       VALUES ('Standard', 1000, 'c1', 'Programmering', 1, '2026-01-01T00:00:00.000Z')`,
+    ).run();
+    const clientId = (db.prepare(`SELECT id FROM clients`).get() as { id: number }).id;
+    db.prepare(
+      `INSERT INTO invoices (bokio_invoice_id, period_start, period_end, hours, client_id, created_at)
+       VALUES ('inv-1', '2026-01-01', '2026-01-31', 120, ?, 't')`,
+    ).run(clientId);
+
+    db.exec(migrationSql("0004"));
+
+    const row = db
+      .prepare(
+        `SELECT bokio_status as bokioStatus, bokio_invoice_number as bokioInvoiceNumber,
+                status_checked_at as statusCheckedAt FROM invoices`,
+      )
+      .get() as Record<string, unknown>;
+    expect(row).toEqual({ bokioStatus: null, bokioInvoiceNumber: null, statusCheckedAt: null });
+
+    db.close();
+  });
+});

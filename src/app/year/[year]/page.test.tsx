@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getDb } from "@/db/client";
 import { upsertClient } from "@/db/clients";
 import { upsertDayEntry } from "@/db/dayEntries";
-import { insertInvoice } from "@/db/invoices";
+import { insertInvoice, updateInvoiceStatus } from "@/db/invoices";
 import { clients, dayEntries, invoices } from "@/db/schema";
 import YearPage from "./page";
 
@@ -121,6 +121,26 @@ describe("YearPage", () => {
     const oktober = screen.getByRole("row", { name: /Oktober/ });
     expect(within(oktober).getByTitle("Kund A: 100 h fakturerat 2026-10-02")).toBeInTheDocument();
     expect(within(oktober).getByTitle("Kund B: 50 h fakturerat 2026-10-02")).toBeInTheDocument();
+  });
+
+  it("does not mark a month whose only invoice was deleted in Bokio", async () => {
+    const db = getDb();
+    const clientId = seedClient("Kund A");
+    const invoice = insertInvoice(
+      db,
+      { bokioInvoiceId: "b1", periodStart: "2026-10-02", periodEnd: "2026-10-31", hours: 160, clientId },
+      "t",
+    );
+    updateInvoiceStatus(db, invoice.id, {
+      bokioStatus: "deleted",
+      bokioInvoiceNumber: null,
+      statusCheckedAt: "t",
+    });
+
+    render(await YearPage({ params: Promise.resolve({ year: "2026" }) }));
+
+    const oktober = screen.getByRole("row", { name: /Oktober/ });
+    expect(within(oktober).queryByTitle(/fakturerat/)).not.toBeInTheDocument();
   });
 
   it("highlights the current month's row when showing the current year", async () => {

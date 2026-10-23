@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { dayEntries, invoices, type Client } from "@/db/schema";
 import { upsertClient } from "@/db/clients";
+import { insertInvoice } from "@/db/invoices";
 import { submitWeekReport } from "@/db/weekReports";
 import { testDb } from "@/test/db";
 import type { Db } from "@/db/client";
@@ -15,9 +16,13 @@ vi.mock("@/db/client", async (importOriginal) => ({
 }));
 
 const createInvoice = vi.fn();
-vi.mock("@/bokio/client", () => ({ createInvoice: (...args: unknown[]) => createInvoice(...args) }));
+const getInvoice = vi.fn();
+vi.mock("@/bokio/client", () => ({
+  createInvoice: (...args: unknown[]) => createInvoice(...args),
+  getInvoice: (...args: unknown[]) => getInvoice(...args),
+}));
 
-import { createInvoiceForMonth } from "./actions";
+import { createInvoiceForMonth, refreshInvoiceStatuses } from "./actions";
 
 function addClient(values: Partial<Omit<Client, "id" | "isDefault" | "createdAt">> = {}): Client {
   return upsertClient(db, {
@@ -188,5 +193,76 @@ describe("createInvoiceForMonth", () => {
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toMatch(/[Oo]giltig/);
     expect(createInvoice).not.toHaveBeenCalled();
+  });
+});
+
+describe("refreshInvoiceStatuses", () => {
+  beforeEach(() => {
+    db = testDb();
+    revalidatePath.mockReset();
+    getInvoice.mockReset();
+    vi.unstubAllEnvs();
+  });
+
+  function seedInvoice(bokioInvoiceId: string, clientId: number) {
+    return insertInvoice(db, {
+      bokioInvoiceId,
+      periodStart: "2026-10-01",
+      periodEnd: "2026-10-31",
+      hours: 10,
+      clientId,
+    });
+  }
+
+  it("updates every stored invoice with its live Bokio status", async () => {
+    defaultClientId = addClient().id;
+    vi.stubEnv("BOKIO_TOKEN", "token");
+    vi.stubEnv("BOKIO_COMPANY_ID", "company");
+    const row = seedInvoice("inv-1", defaultClientId);
+    getInvoice.mockResolvedValue({
+      status: "published",
+      invoiceNumber: "123",
+      totalAmount: 12000,
+      paidAmount: 0,
+      dueDate: "2026-11-30",
+      publishedDateTime: "2026-10-31T10:00:00Z",
+    });
+
+    const result = await refreshInvoiceStatuses();
+
+    expect(result).toEqual({ ok: true });
+    expect(getInvoice).toHaveBeenCalledWith("inv-1");
+    const updated = db.select().from(invoices).all()[0];
+    expect(updated).toMatchObject({
+      id: row.id,
+      bokioStatus: "published",
+      bokioInvoiceNumber: "123",
+    });
+    expect(updated.statusCheckedAt).toBeTypeOf("string");
+    expect(revalidatePath).toHaveBeenCalledWith("/invoices");
+  });
+
+  it("marks an invoice deleted when Bokio no longer has it (404 → null)", async () => {
+    defaultClientId = addClient().id;
+    vi.stubEnv("BOKIO_TOKEN", "token");
+    vi.stubEnv("BOKIO_COMPANY_ID", "company");
+    seedInvoice("gone", defaultClientId);
+    getInvoice.mockResolvedValue(null);
+
+    expect(await refreshInvoiceStatuses()).toEqual({ ok: true });
+
+    const updated = db.select().from(invoices).all()[0];
+    expect(updated.bokioStatus).toBe("deleted");
+    expect(updated.bokioInvoiceNumber).toBeNull();
+  });
+
+  it("refuses when Bokio env secrets are missing", async () => {
+    defaultClientId = addClient().id;
+    seedInvoice("inv-1", defaultClientId);
+
+    const result = await refreshInvoiceStatuses();
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toMatch(/\.env/);
+    expect(getInvoice).not.toHaveBeenCalled();
   });
 });
