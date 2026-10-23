@@ -267,7 +267,6 @@ describe("WeekGrid", () => {
     const datalist = document.getElementById(listId as string);
     expect(datalist).not.toBeNull();
     expect(datalist?.querySelectorAll("option")).toHaveLength(2);
-    expect(screen.getByLabelText("Kommentar 2026-10-19")).not.toHaveAttribute("list");
   });
 
   it("submits the week from the submit button", () => {

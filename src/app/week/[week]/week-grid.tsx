@@ -223,6 +223,7 @@ export function WeekGrid({
           {rows.map((row, index) => {
             const state = states[row.date];
             const status = statuses[row.date] ?? "idle";
+            const isVab = state.type === "vab";
             return (
               <tr key={row.date} className="border-b">
                 <td className="py-2">{WEEKDAY_LABELS[index]}</td>
@@ -296,8 +297,8 @@ export function WeekGrid({
                   <input
                     aria-label={`Kommentar ${row.date}`}
                     type="text"
-                    placeholder={state.type === "vab" ? "Barn" : "Kommentar"}
-                    list={state.type === "vab" ? VAB_NOTES_LIST_ID : undefined}
+                    placeholder={isVab ? "Barn" : "Kommentar"}
+                    list={isVab ? VAB_NOTES_LIST_ID : undefined}
                     value={state.note}
                     disabled={submitted}
                     onChange={(event) => editField(row.date, { note: event.target.value })}
