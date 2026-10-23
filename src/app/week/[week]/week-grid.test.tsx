@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ComponentProps } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -12,6 +12,12 @@ vi.mock("./actions", () => ({
   submitWeek: (...args: unknown[]) => submitWeek(...args),
   reopenWeek: (...args: unknown[]) => reopenWeek(...args),
   applyWeekPreset: (...args: unknown[]) => applyWeekPreset(...args),
+}));
+
+const toastSuccess = vi.fn();
+const toastError = vi.fn();
+vi.mock("sonner", () => ({
+  toast: { success: (m: string) => toastSuccess(m), error: (m: string) => toastError(m) },
 }));
 
 import { WeekGrid, type WeekGridRow } from "./week-grid";
@@ -36,10 +42,12 @@ function renderGrid(props: Partial<ComponentProps<typeof WeekGrid>> = {}) {
 
 describe("WeekGrid", () => {
   beforeEach(() => {
-    saveDay.mockClear();
-    submitWeek.mockClear();
-    reopenWeek.mockClear();
-    applyWeekPreset.mockClear();
+    saveDay.mockClear().mockImplementation(() => Promise.resolve());
+    submitWeek.mockClear().mockImplementation(() => Promise.resolve());
+    reopenWeek.mockClear().mockImplementation(() => Promise.resolve());
+    applyWeekPreset.mockClear().mockImplementation(() => Promise.resolve());
+    toastSuccess.mockClear();
+    toastError.mockClear();
   });
 
   it("fills the whole week with work hours from the preset pill", () => {
@@ -71,7 +79,9 @@ describe("WeekGrid", () => {
     expect(screen.getByText("8")).toHaveClass("tabular-nums");
   });
 
-  it("saves and shows an indicator when the type changes", async () => {
+  it("saves and shows a spinner while the type change is saving", async () => {
+    let resolveSave: () => void = () => {};
+    saveDay.mockImplementationOnce(() => new Promise<void>((resolve) => (resolveSave = resolve)));
     renderGrid();
 
     fireEvent.change(screen.getByLabelText("Typ 2026-10-20"), {
@@ -84,7 +94,37 @@ describe("WeekGrid", () => {
       hours: "",
       note: "",
     });
-    expect(await screen.findByText("Sparat")).toBeInTheDocument();
+    expect(await screen.findByLabelText("Sparar")).toBeInTheDocument();
+
+    resolveSave();
+    await waitFor(() => expect(screen.queryByLabelText("Sparar")).not.toBeInTheDocument());
+  });
+
+  it("toasts an error when a day save fails", async () => {
+    saveDay.mockRejectedValueOnce(new Error("nope"));
+    renderGrid();
+
+    fireEvent.change(screen.getByLabelText("Typ 2026-10-20"), {
+      target: { value: "vacation" },
+    });
+
+    await waitFor(() => expect(toastError).toHaveBeenCalledWith("Kunde inte spara dagen"));
+  });
+
+  it("toasts after the week is submitted", async () => {
+    renderGrid();
+
+    fireEvent.click(screen.getByRole("button", { name: "Skicka in vecka" }));
+
+    await waitFor(() => expect(toastSuccess).toHaveBeenCalledWith("Vecka inskickad"));
+  });
+
+  it("toasts after the week is reopened", async () => {
+    renderGrid({ submitted: true, submittedAt: "2026-10-25T18:00:00.000Z" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Öppna igen" }));
+
+    await waitFor(() => expect(toastSuccess).toHaveBeenCalledWith("Vecka öppnad"));
   });
 
   it("saves hours on blur and updates the total", () => {

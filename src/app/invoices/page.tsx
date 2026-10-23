@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import { getDb } from "@/db/client";
 import { getWorkDays, listInvoices } from "@/db/invoices";
 import { getSettings } from "@/db/settings";
@@ -12,7 +11,7 @@ import {
 } from "@/lib/invoicing";
 import { getSecretsStatus } from "@/lib/settings";
 import { formatWeek } from "@/lib/week";
-import { createInvoiceForMonth } from "./actions";
+import { CreateInvoiceButton } from "./create-invoice-button";
 
 const currency = new Intl.NumberFormat("sv-SE", {
   style: "currency",
@@ -81,11 +80,7 @@ export default function InvoicesPage() {
                     </p>
                     {reason && <p className="mt-1 text-sm text-destructive">{reason}</p>}
                   </div>
-                  <form action={createInvoiceForMonth.bind(null, month.yearMonth)}>
-                    <Button type="submit" disabled={reason !== null}>
-                      Skapa faktura
-                    </Button>
-                  </form>
+                  <CreateInvoiceButton yearMonth={month.yearMonth} disabled={reason !== null} />
                 </li>
               );
             })}

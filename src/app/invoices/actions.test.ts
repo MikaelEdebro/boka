@@ -48,8 +48,9 @@ describe("createInvoiceForMonth", () => {
     configure();
     seedSubmittedWorkWeek();
 
-    await createInvoiceForMonth("2026-10");
+    const result = await createInvoiceForMonth("2026-10");
 
+    expect(result).toEqual({ ok: true });
     expect(createInvoice).toHaveBeenCalledWith({
       customerId: "cust-1",
       invoiceDate: "2026-10-31",
@@ -75,7 +76,9 @@ describe("createInvoiceForMonth", () => {
       .values({ date: "2026-10-19", type: "work", hours: 8, updatedAt: "2026-10-19T08:00:00Z" })
       .run();
 
-    await expect(createInvoiceForMonth("2026-10")).rejects.toThrow(/inskickad/i);
+    const result = await createInvoiceForMonth("2026-10");
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toMatch(/inskickad/i);
     expect(createInvoice).not.toHaveBeenCalled();
     expect(db.select().from(invoices).all()).toHaveLength(0);
   });
@@ -86,7 +89,9 @@ describe("createInvoiceForMonth", () => {
     upsertSettings(db, { hourlyRate: null, bokioCustomerId: "cust-1", invoiceItemName: "Konsult" });
     seedSubmittedWorkWeek();
 
-    await expect(createInvoiceForMonth("2026-10")).rejects.toThrow(/[Tt]impris/);
+    const result = await createInvoiceForMonth("2026-10");
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toMatch(/[Tt]impris/);
     expect(createInvoice).not.toHaveBeenCalled();
   });
 
@@ -94,14 +99,18 @@ describe("createInvoiceForMonth", () => {
     upsertSettings(db, { hourlyRate: 1200, bokioCustomerId: "cust-1", invoiceItemName: "Konsult" });
     seedSubmittedWorkWeek();
 
-    await expect(createInvoiceForMonth("2026-10")).rejects.toThrow(/\.env/);
+    const result = await createInvoiceForMonth("2026-10");
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toMatch(/\.env/);
     expect(createInvoice).not.toHaveBeenCalled();
   });
 
   it("refuses when the month has no work hours", async () => {
     configure();
 
-    await expect(createInvoiceForMonth("2026-10")).rejects.toThrow(/arbetstimmar/i);
+    const result = await createInvoiceForMonth("2026-10");
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toMatch(/arbetstimmar/i);
     expect(createInvoice).not.toHaveBeenCalled();
   });
 
@@ -115,7 +124,9 @@ describe("createInvoiceForMonth", () => {
       hours: 14,
     });
 
-    await expect(createInvoiceForMonth("2026-10")).rejects.toThrow(/redan/i);
+    const result = await createInvoiceForMonth("2026-10");
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toMatch(/redan/i);
     expect(createInvoice).not.toHaveBeenCalled();
     expect(db.select().from(invoices).all()).toHaveLength(1);
   });
@@ -123,7 +134,9 @@ describe("createInvoiceForMonth", () => {
   it("rejects an invalid month param", async () => {
     configure();
 
-    await expect(createInvoiceForMonth("2026-13")).rejects.toThrow(/[Oo]giltig/);
+    const result = await createInvoiceForMonth("2026-13");
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toMatch(/[Oo]giltig/);
     expect(createInvoice).not.toHaveBeenCalled();
   });
 });

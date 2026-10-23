@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist_Mono, Inter } from "next/font/google";
 import { Suspense } from "react";
+import { Toaster } from "sonner";
 import { Nav } from "@/components/nav";
 import { CONTAINER } from "@/lib/layout";
 import "./globals.css";
@@ -21,6 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <Nav />
         </Suspense>
         <main className={`${CONTAINER} flex-1 p-6`}>{children}</main>
+        <Toaster position="bottom-right" />
       </body>
     </html>
   );
