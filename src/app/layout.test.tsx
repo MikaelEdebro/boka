@@ -10,7 +10,6 @@ vi.mock("next/font/google", () => ({
   Inter: () => ({ variable: "font-inter-variable" }),
   Geist_Mono: () => ({ variable: "font-geist-mono-variable" }),
 }));
-vi.mock("next/cache", () => ({ cacheLife: vi.fn() }));
 
 type HtmlElement = ReactElement<{
   className: string;

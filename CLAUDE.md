@@ -30,3 +30,4 @@ Weekly time reporting for a one-person Swedish company. Single user, runs locall
 - Named exports. Colocate tests next to the code (`foo.ts` + `foo.test.ts`).
 - Keep DB access in `src/db/` and domain logic in `src/lib/`; pages and server actions in `src/app/` stay thin.
 - Swedish labels in the UI, English identifiers in code.
+- cacheComponents is off on purpose: all pages are dynamic, do not add `use cache`, `connection()` or `instant` exports. The root layout sets `dynamic = "force-dynamic"` so nothing is prerendered at build time.

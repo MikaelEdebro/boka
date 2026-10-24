@@ -1,4 +1,3 @@
-import { connection } from "next/server";
 import { getDb } from "@/db/client";
 import { getSettings } from "@/db/settings";
 import { getSecretsStatus } from "@/lib/settings";
@@ -6,7 +5,6 @@ import { ConnectionTest } from "./connection-test";
 import { ThemeForm } from "./theme-form";
 
 export default async function SettingsPage() {
-  await connection();
   const secrets = getSecretsStatus();
   const { theme } = getSettings(getDb());
 

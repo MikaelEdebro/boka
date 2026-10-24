@@ -7,8 +7,6 @@ import { insertInvoice } from "@/db/invoices";
 import { clients, dayEntries, invoices } from "@/db/schema";
 import YearPage from "./page";
 
-vi.mock("next/server", () => ({ connection: vi.fn(async () => {}) }));
-
 beforeEach(() => {
   getDb().delete(dayEntries).run();
   getDb().delete(invoices).run();

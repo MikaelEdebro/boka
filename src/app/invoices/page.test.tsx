@@ -8,8 +8,6 @@ import { submitWeekReport } from "@/db/weekReports";
 import type { BokioInvoiceList } from "./bokio-invoices";
 import InvoicesPage from "./page";
 
-vi.mock("next/server", () => ({ connection: vi.fn(async () => {}) }));
-
 const refreshInvoiceStatuses = vi.fn(async () => ({ ok: true }) as const);
 vi.mock("./actions", () => ({
   createInvoiceForMonth: vi.fn(),

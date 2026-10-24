@@ -1,7 +1,6 @@
 import { Check } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { connection } from "next/server";
 import { buttonVariants } from "@/components/ui/button";
 import { getDb } from "@/db/client";
 import { listClients } from "@/db/clients";
@@ -16,8 +15,6 @@ const YEAR_RE = /^\d{4}$/;
 
 const DAY_TYPE_COLUMNS = ["vacation", "leave", "vab", "sick", "parental", "holiday"] as const;
 
-export const instant = false;
-
 export default async function YearPage({
   params,
 }: {
@@ -27,7 +24,6 @@ export default async function YearPage({
   if (!YEAR_RE.test(yearParam)) notFound();
   const year = Number(yearParam);
 
-  await connection();
   const now = new Date();
   const currentMonth = now.getFullYear() === year ? now.getMonth() + 1 : null;
   const isCurrentYear = currentWeek().year === year;

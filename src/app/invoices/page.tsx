@@ -1,6 +1,5 @@
 import { format, parseISO } from "date-fns";
 import { AlertTriangle } from "lucide-react";
-import { connection } from "next/server";
 import { StatusBadge } from "@/components/status-badge";
 import { getDb } from "@/db/client";
 import { listClients } from "@/db/clients";
@@ -103,8 +102,6 @@ function BokioInvoiceSuggestion({
 }
 
 export default async function InvoicesPage() {
-  await connection();
-
   const db = getDb();
   const secrets = getSecretsStatus();
   const envReady = Boolean(secrets.bokioToken && secrets.bokioCompanyId);

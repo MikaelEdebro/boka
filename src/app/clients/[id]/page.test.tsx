@@ -11,7 +11,6 @@ vi.mock("next/navigation", () => ({
     throw new Error("NEXT_NOT_FOUND");
   },
 }));
-vi.mock("next/server", () => ({ connection: vi.fn(async () => {}) }));
 
 const listCustomers = vi.fn();
 vi.mock("@/bokio/client", () => ({ listCustomers: () => listCustomers() }));

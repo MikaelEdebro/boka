@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { connection } from "next/server";
 import { getDb } from "@/db/client";
 import { getClient } from "@/db/clients";
 import { loadBokioCustomerList } from "../bokio-customers";
@@ -14,7 +13,6 @@ export default async function EditClientPage({
   const { id } = await params;
   const client = getClient(getDb(), Number(id));
   if (!client) notFound();
-  await connection();
   const bokioCustomers = await loadBokioCustomerList();
   const bokioCustomer = bokioCustomers.ok
     ? bokioCustomers.customers.find((customer) => customer.id === client.bokioCustomerId)

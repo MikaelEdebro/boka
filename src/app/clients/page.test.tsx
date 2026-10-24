@@ -6,7 +6,6 @@ import { clients, dayEntries, invoices } from "@/db/schema";
 import ClientsPage from "./page";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
-vi.mock("next/server", () => ({ connection: vi.fn(async () => {}) }));
 
 const listCustomers = vi.fn();
 vi.mock("@/bokio/client", () => ({ listCustomers: () => listCustomers() }));

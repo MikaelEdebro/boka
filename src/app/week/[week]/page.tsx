@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { connection } from "next/server";
 import { inArray } from "drizzle-orm";
 import { buttonVariants } from "@/components/ui/button";
 import { getDb } from "@/db/client";
@@ -20,8 +19,6 @@ import {
 } from "@/lib/week";
 import { WeekGrid, type WeekGridRow } from "./week-grid";
 
-export const instant = false;
-
 export default async function WeekPage({
   params,
 }: {
@@ -31,7 +28,6 @@ export default async function WeekPage({
   const week = parseWeek(weekParam);
   if (!week) notFound();
 
-  await connection();
   const today = currentWeek();
   const isCurrentWeek = today.year === week.year && today.week === week.week;
 

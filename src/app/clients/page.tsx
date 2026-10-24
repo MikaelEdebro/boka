@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { connection } from "next/server";
 import { getDb } from "@/db/client";
 import { countClientRecords, listClients } from "@/db/clients";
 import {
@@ -21,7 +20,6 @@ const currency = new Intl.NumberFormat("sv-SE", {
 });
 
 export default async function ClientsPage() {
-  await connection();
   const db = getDb();
   const clients = listClients(db);
   const recordCounts = countClientRecords(db);

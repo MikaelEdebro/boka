@@ -8,7 +8,6 @@ const notFound = vi.hoisted(() => vi.fn(() => {
   throw new Error("NEXT_NOT_FOUND");
 }));
 vi.mock("next/navigation", () => ({ notFound }));
-vi.mock("next/server", () => ({ connection: vi.fn(async () => {}) }));
 
 afterEach(() => {
   vi.useRealTimers();

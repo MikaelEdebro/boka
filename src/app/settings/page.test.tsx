@@ -5,7 +5,6 @@ import { settings } from "@/db/schema";
 import { upsertSettings } from "@/db/settings";
 import SettingsPage from "./page";
 
-vi.mock("next/server", () => ({ connection: vi.fn(async () => {}) }));
 vi.mock("./actions", () => ({ saveSettings: vi.fn(), testBokioConnection: vi.fn() }));
 
 beforeEach(() => {
