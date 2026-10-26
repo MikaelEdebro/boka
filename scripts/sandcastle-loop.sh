@@ -8,7 +8,7 @@
 set -euo pipefail
 
 REPO="MikaelEdebro/boka"
-POLL_SECONDS="${SANDCASTLE_POLL_SECONDS:-300}"
+POLL_SECONDS="${SANDCASTLE_POLL_SECONDS:-60}"
 
 cd "$(dirname "$0")/.."
 
