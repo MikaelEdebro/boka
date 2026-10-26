@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { DAY_TYPES, type DayType } from "@/db/schema";
 import { DAY_TYPE_LABELS, WEEKDAY_LABELS } from "@/lib/labels";
-import type { DayInput } from "@/lib/dayEntry";
+import { hoursError, normalizeHours, type DayInput } from "@/lib/dayEntry";
 import {
   WEEK_PRESETS,
   WEEK_PRESET_LABELS,
@@ -39,7 +39,7 @@ function toState(row: WeekGridRow): RowState {
 
 function workHours(state: RowState): number {
   if (state.type !== "work") return 0;
-  const parsed = Number(state.hours);
+  const parsed = Number(normalizeHours(state.hours));
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
@@ -95,6 +95,7 @@ export function WeekGrid({
     Object.fromEntries(rows.map((row) => [row.date, toState(row)])),
   );
   const [statuses, setStatuses] = useState<Record<string, SaveStatus>>({});
+  const [hoursErrors, setHoursErrors] = useState<Record<string, string>>({});
   const [pending, startTransition] = useTransition();
   const hourInputs = useRef<(HTMLInputElement | null)[]>([]);
   const selectOnFocus = useSelectOnFocus();
@@ -136,6 +137,7 @@ export function WeekGrid({
       return next;
     });
     setStatuses({});
+    setHoursErrors({});
     startTransition(async () => {
       try {
         await applyWeekPreset(week, preset);
@@ -146,6 +148,14 @@ export function WeekGrid({
   }
 
   function persist(date: string, next: RowState) {
+    const error = hoursError(next.hours);
+    setHoursErrors((prev) => {
+      const errors = { ...prev };
+      if (error) errors[date] = error;
+      else delete errors[date];
+      return errors;
+    });
+    if (error) return;
     setStatuses((prev) => ({ ...prev, [date]: "saving" }));
     startTransition(async () => {
       try {
@@ -224,6 +234,8 @@ export function WeekGrid({
             const state = states[row.date];
             const status = statuses[row.date] ?? "idle";
             const isVab = state.type === "vab";
+            const hoursErrorMessage = hoursErrors[row.date];
+            const hoursErrorId = `hours-error-${row.date}`;
             return (
               <tr key={row.date} className="border-b">
                 <td className="py-2">{WEEKDAY_LABELS[index]}</td>
@@ -274,10 +286,11 @@ export function WeekGrid({
                       hourInputs.current[index] = node;
                     }}
                     aria-label={`Timmar ${row.date}`}
-                    type="number"
-                    min={0}
-                    max={24}
-                    step={0.5}
+                    type="text"
+                    inputMode="decimal"
+                    pattern="[0-9]*([.,][0-9]+)?"
+                    aria-invalid={hoursErrorMessage ? true : undefined}
+                    aria-describedby={hoursErrorMessage ? hoursErrorId : undefined}
                     autoFocus={index === 0 && !submitted}
                     value={state.hours}
                     disabled={submitted}
@@ -288,10 +301,17 @@ export function WeekGrid({
                         focusNextHours(index, event.currentTarget);
                       }
                     }}
-                    onBlur={(event) => update(row.date, { hours: event.target.value })}
+                    onBlur={(event) =>
+                      update(row.date, { hours: normalizeHours(event.target.value) })
+                    }
                     {...selectOnFocus}
-                    className="w-20 rounded-md border bg-transparent px-2 py-1 tabular-nums disabled:opacity-50"
+                    className="w-20 rounded-md border bg-transparent px-2 py-1 tabular-nums disabled:opacity-50 aria-invalid:border-destructive"
                   />
+                  {hoursErrorMessage && (
+                    <p id={hoursErrorId} role="alert" className="mt-1 text-xs text-destructive">
+                      {hoursErrorMessage}
+                    </p>
+                  )}
                 </td>
                 <td className="py-2">
                   <input

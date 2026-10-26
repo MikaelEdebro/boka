@@ -42,7 +42,7 @@ describe("WeekPage", () => {
 
     render(await renderWeek("2026-W43"));
 
-    expect(screen.getByLabelText("Timmar 2026-10-19")).toHaveValue(8);
+    expect(screen.getByLabelText("Timmar 2026-10-19")).toHaveValue("8");
     expect(screen.getByLabelText("Typ 2026-10-21")).toHaveValue("vacation");
     expect(screen.getByText("Summa arbetstimmar")).toBeInTheDocument();
     expect(screen.getByText("14")).toBeInTheDocument();
@@ -91,17 +91,17 @@ describe("WeekPage", () => {
     render(await renderWeek("2026-W01"));
 
     expect(screen.getByLabelText("Typ 2026-01-01")).toHaveValue("holiday");
-    expect(screen.getByLabelText("Timmar 2026-01-01")).toHaveValue(0);
+    expect(screen.getByLabelText("Timmar 2026-01-01")).toHaveValue("0");
     // A normal weekday in the same week is left as an empty work day.
     expect(screen.getByLabelText("Typ 2026-01-02")).toHaveValue("work");
-    expect(screen.getByLabelText("Timmar 2026-01-02")).toHaveValue(null);
+    expect(screen.getByLabelText("Timmar 2026-01-02")).toHaveValue("");
   });
 
   it("leaves a red day that falls on a weekend empty", async () => {
     render(await renderWeek("2026-W23"));
 
     expect(screen.getByLabelText("Typ 2026-06-06")).toHaveValue("work");
-    expect(screen.getByLabelText("Timmar 2026-06-06")).toHaveValue(null);
+    expect(screen.getByLabelText("Timmar 2026-06-06")).toHaveValue("");
   });
 
   it("keeps a saved entry on a red day instead of the pre-fill", async () => {
@@ -115,6 +115,6 @@ describe("WeekPage", () => {
     render(await renderWeek("2026-W01"));
 
     expect(screen.getByLabelText("Typ 2026-01-01")).toHaveValue("work");
-    expect(screen.getByLabelText("Timmar 2026-01-01")).toHaveValue(8);
+    expect(screen.getByLabelText("Timmar 2026-01-01")).toHaveValue("8");
   });
 });

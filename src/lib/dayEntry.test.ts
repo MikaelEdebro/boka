@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseDay } from "@/lib/dayEntry";
+import { hoursError, parseDay } from "@/lib/dayEntry";
 
 describe("parseDay", () => {
   it("parses a work day with hours and a client into an upsert", () => {
@@ -88,5 +88,33 @@ describe("parseDay", () => {
 
   it("rejects hours that are not half-hour steps", () => {
     expect(() => parseDay({ date: "2026-10-19", type: "work", hours: "1.3" })).toThrow();
+  });
+
+  it("accepts a comma as decimal separator", () => {
+    expect(parseDay({ date: "2026-10-19", type: "work", hours: "7,5", clientId: "1" })).toMatchObject({
+      op: "upsert",
+      hours: 7.5,
+    });
+  });
+
+  it("rejects hours that are not a number with a message", () => {
+    expect(() => parseDay({ date: "2026-10-19", type: "work", hours: "abc", clientId: "1" })).toThrow(
+      "Timmar måste vara ett tal",
+    );
+  });
+});
+
+describe("hoursError", () => {
+  it("returns null for empty, dot and comma decimals", () => {
+    expect(hoursError("")).toBeNull();
+    expect(hoursError("8")).toBeNull();
+    expect(hoursError("7.5")).toBeNull();
+    expect(hoursError("7,5")).toBeNull();
+  });
+
+  it("returns the validation message for invalid hours", () => {
+    expect(hoursError("abc")).toBe("Timmar måste vara ett tal");
+    expect(hoursError("25")).toBe("Timmar måste vara mellan 0 och 24");
+    expect(hoursError("1,3")).toBe("Timmar anges i halvtimmar");
   });
 });

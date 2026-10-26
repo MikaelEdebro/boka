@@ -147,6 +147,59 @@ describe("WeekGrid", () => {
     expect(screen.getByText("12")).toBeInTheDocument();
   });
 
+  it("renders the hours as decimal text inputs without number spinners", () => {
+    const { container } = renderGrid();
+
+    expect(container.querySelector('input[type="number"]')).toBeNull();
+    const input = screen.getByLabelText("Timmar 2026-10-19");
+    expect(input).toHaveAttribute("type", "text");
+    expect(input).toHaveAttribute("inputmode", "decimal");
+    expect(input).toHaveAttribute("pattern", "[0-9]*([.,][0-9]+)?");
+  });
+
+  it("saves hours typed with a decimal comma as a dot decimal", () => {
+    renderGrid();
+
+    const input = screen.getByLabelText("Timmar 2026-10-20");
+    fireEvent.change(input, { target: { value: "7,5" } });
+    fireEvent.blur(input);
+
+    expect(saveDay).toHaveBeenCalledWith({
+      date: "2026-10-20",
+      type: "work",
+      hours: "7.5",
+      note: "",
+      clientId: "1",
+    });
+    expect(screen.getByText("15.5")).toBeInTheDocument();
+  });
+
+  it("shows invalid hours inline and does not save them", () => {
+    renderGrid();
+
+    const input = screen.getByLabelText("Timmar 2026-10-20");
+    fireEvent.change(input, { target: { value: "abc" } });
+    fireEvent.blur(input);
+
+    expect(saveDay).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent("Timmar måste vara ett tal");
+    expect(input).toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("clears the inline hours error once a valid value is saved", () => {
+    renderGrid();
+
+    const input = screen.getByLabelText("Timmar 2026-10-20");
+    fireEvent.change(input, { target: { value: "abc" } });
+    fireEvent.blur(input);
+    fireEvent.change(input, { target: { value: "4" } });
+    fireEvent.blur(input);
+
+    expect(saveDay).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(input).not.toHaveAttribute("aria-invalid", "true");
+  });
+
   it("uses a fixed table layout with a column reserved for the note", () => {
     const { container } = renderGrid();
 
@@ -335,7 +388,7 @@ describe("WeekGrid", () => {
     await user.tab();
     await user.keyboard("6");
 
-    expect(screen.getByLabelText("Timmar 2026-10-20")).toHaveValue(6);
+    expect(screen.getByLabelText("Timmar 2026-10-20")).toHaveValue("6");
   });
 
   it("selects the next hours on Enter so typing replaces the value", async () => {
@@ -350,7 +403,7 @@ describe("WeekGrid", () => {
     screen.getByLabelText("Timmar 2026-10-19").focus();
     await user.keyboard("{Enter}6");
 
-    expect(screen.getByLabelText("Timmar 2026-10-20")).toHaveValue(6);
+    expect(screen.getByLabelText("Timmar 2026-10-20")).toHaveValue("6");
   });
 
   it("selects the hours on click so typing replaces the value", async () => {
@@ -362,7 +415,7 @@ describe("WeekGrid", () => {
     await user.click(tuesday);
     await user.keyboard("6");
 
-    expect(tuesday).toHaveValue(6);
+    expect(tuesday).toHaveValue("6");
   });
 
   it("selects the note on focus so typing replaces it", async () => {

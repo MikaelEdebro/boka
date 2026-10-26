@@ -6,15 +6,24 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const emptyToNull = (value: unknown) =>
   value === "" || value === undefined || value === null ? null : value;
 
+export function normalizeHours(hours: string): string {
+  return hours.trim().replace(",", ".");
+}
+
 const hoursField = z.preprocess(
-  emptyToNull,
+  (value) => emptyToNull(typeof value === "string" ? normalizeHours(value) : value),
   z.coerce
-    .number()
+    .number({ error: "Timmar måste vara ett tal" })
     .min(0, "Timmar måste vara mellan 0 och 24")
     .max(24, "Timmar måste vara mellan 0 och 24")
     .refine((hours) => Number.isInteger(hours * 2), "Timmar anges i halvtimmar")
     .nullable(),
 );
+
+export function hoursError(hours: string): string | null {
+  const result = hoursField.safeParse(hours);
+  return result.success ? null : result.error.issues[0].message;
+}
 
 const noteField = z.preprocess(emptyToNull, z.string().trim().nullable());
 
