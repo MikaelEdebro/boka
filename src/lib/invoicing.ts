@@ -1,6 +1,6 @@
 import { endOfMonth, format, parseISO } from "date-fns";
 import type { DayType } from "@/db/schema";
-import { formatWeek, weekForDate } from "@/lib/week";
+import { formatWeek, weeksOverlappingMonth } from "@/lib/week";
 
 const YEAR_MONTH_RE = /^(\d{4})-(\d{2})$/;
 
@@ -106,11 +106,9 @@ export function aggregateMonth(
 
   const hours = workDays.reduce((sum, entry) => sum + entry.hours, 0);
 
-  const unsubmitted = new Set<string>();
-  for (const day of workDays) {
-    const label = formatWeek(weekForDate(day.date));
-    if (!submittedWeeks.has(label)) unsubmitted.add(label);
-  }
+  const unsubmittedWeeks = weeksOverlappingMonth(yearMonth)
+    .map(formatWeek)
+    .filter((label) => !submittedWeeks.has(label));
 
   const { periodStart, periodEnd } = monthPeriod(yearMonth);
   return {
@@ -121,7 +119,7 @@ export function aggregateMonth(
     hours,
     hourlyRate,
     amount: hours * hourlyRate,
-    unsubmittedWeeks: [...unsubmitted].sort(),
+    unsubmittedWeeks,
   };
 }
 

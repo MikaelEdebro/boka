@@ -3,7 +3,7 @@ import { dayEntries, invoices, type Client } from "@/db/schema";
 import { upsertClient } from "@/db/clients";
 import { insertInvoice, updateInvoiceStatus } from "@/db/invoices";
 import { submitWeekReport } from "@/db/weekReports";
-import { testDb } from "@/test/db";
+import { submitMonth, testDb } from "@/test/db";
 import type { Db } from "@/db/client";
 
 const revalidatePath = vi.fn();
@@ -48,7 +48,7 @@ function seedSubmittedWorkWeek(clientId = defaultClientId) {
       { date: "2026-10-20", type: "work", hours: 6, clientId, updatedAt: "2026-10-20T08:00:00Z" },
     ])
     .run();
-  submitWeekReport(db, { year: 2026, week: 43 }, "2026-10-25T18:00:00.000Z");
+  submitMonth(db, "2026-10");
 }
 
 describe("createInvoiceForMonth", () => {
@@ -97,7 +97,7 @@ describe("createInvoiceForMonth", () => {
         { date: "2026-10-20", type: "work", hours: 5, clientId: b.id, updatedAt: "t" },
       ])
       .run();
-    submitWeekReport(db, { year: 2026, week: 43 }, "2026-10-25T18:00:00.000Z");
+    submitMonth(db, "2026-10");
 
     createInvoice.mockReset().mockResolvedValueOnce("inv-a").mockResolvedValueOnce("inv-b");
 
@@ -153,6 +153,19 @@ describe("createInvoiceForMonth", () => {
     if (!result.ok) expect(result.error).toMatch(/inskickad/i);
     expect(createInvoice).not.toHaveBeenCalled();
     expect(db.select().from(invoices).all()).toHaveLength(0);
+  });
+
+  it("refuses when a week overlapping the month has no entries and is not submitted", async () => {
+    configure();
+    db.insert(dayEntries)
+      .values({ date: "2026-10-19", type: "work", hours: 8, clientId: defaultClientId, updatedAt: "t" })
+      .run();
+    for (const week of [40, 41, 42, 43]) submitWeekReport(db, { year: 2026, week });
+
+    const result = await createInvoiceForMonth("2026-10", defaultClientId);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toBe("Alla veckor är inte inskickade: 2026-W44");
+    expect(createInvoice).not.toHaveBeenCalled();
   });
 
   it("refuses when the client does not exist", async () => {

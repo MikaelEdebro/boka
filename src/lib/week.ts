@@ -1,9 +1,12 @@
 import {
   addDays,
   addWeeks,
+  eachDayOfInterval,
+  endOfMonth,
   format,
   getISOWeek,
   getISOWeekYear,
+  isWeekend,
   parseISO,
   startOfISOWeek,
 } from "date-fns";
@@ -69,4 +72,17 @@ export function currentWeek(): Week {
 export function weekForDate(date: string): Week {
   const parsed = parseISO(date);
   return { year: getISOWeekYear(parsed), week: getISOWeek(parsed) };
+}
+
+export function weeksOverlappingMonth(yearMonth: string): Week[] {
+  const firstDay = parseISO(`${yearMonth}-01`);
+  const weekdays = eachDayOfInterval({ start: firstDay, end: endOfMonth(firstDay) }).filter(
+    (day) => !isWeekend(day),
+  );
+  const weeks = new Map<string, Week>();
+  for (const day of weekdays) {
+    const week = { year: getISOWeekYear(day), week: getISOWeek(day) };
+    weeks.set(formatWeek(week), week);
+  }
+  return [...weeks.values()];
 }

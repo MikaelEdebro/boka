@@ -7,6 +7,7 @@ import {
   parseWeek,
   prevWeek,
   weekDays,
+  weeksOverlappingMonth,
 } from "@/lib/week";
 
 describe("parseWeek", () => {
@@ -91,5 +92,26 @@ describe("currentWeek", () => {
     expect(week.week).toBeGreaterThanOrEqual(1);
     expect(week.week).toBeLessThanOrEqual(53);
     expect(formatWeek(week)).toMatch(/^\d{4}-W\d{2}$/);
+  });
+});
+
+describe("weeksOverlappingMonth", () => {
+  const labels = (yearMonth: string) => weeksOverlappingMonth(yearMonth).map(formatWeek);
+
+  it("lists every ISO week with a weekday in the month", () => {
+    expect(labels("2026-10")).toEqual(["2026-W40", "2026-W41", "2026-W42", "2026-W43", "2026-W44"]);
+  });
+
+  it("skips weeks that only share a weekend with the month", () => {
+    // 2026-08-01/02 are Sat/Sun of W31; 2026-08-31 is the Monday of W36.
+    expect(labels("2026-08")).toEqual(["2026-W32", "2026-W33", "2026-W34", "2026-W35", "2026-W36"]);
+  });
+
+  it("ends in week 53 at the turn of the year", () => {
+    expect(labels("2026-12")).toEqual(["2026-W49", "2026-W50", "2026-W51", "2026-W52", "2026-W53"]);
+  });
+
+  it("starts in the previous ISO year's week 53", () => {
+    expect(labels("2027-01")).toEqual(["2026-W53", "2027-W01", "2027-W02", "2027-W03", "2027-W04"]);
   });
 });

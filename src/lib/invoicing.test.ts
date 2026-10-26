@@ -62,7 +62,8 @@ describe("monthKey", () => {
   });
 });
 
-const submittedAll = new Set(["2026-W43", "2026-W44"]);
+const octoberWeeks = ["2026-W40", "2026-W41", "2026-W42", "2026-W43", "2026-W44"];
+const submittedAll = new Set(["2026-W36", "2026-W37", "2026-W38", "2026-W39", ...octoberWeeks]);
 
 describe("invoicedKey", () => {
   it("joins the month and client id", () => {
@@ -109,20 +110,31 @@ describe("aggregateMonth", () => {
     expect(agg.amount).toBe(14.5 * 1200);
   });
 
-  it("reports the weeks of work days that are not submitted", () => {
-    const agg = aggregateMonth("2026-10", 1, entries, new Set(["2026-W43"]), 1200);
-    // 2026-10-19/20 are W43 (submitted); 10-23 is W43 too but client 2.
+  it("reports no unsubmitted weeks when every week overlapping the month is submitted", () => {
+    const agg = aggregateMonth("2026-10", 1, entries, new Set(octoberWeeks), 1200);
     expect(agg.unsubmittedWeeks).toEqual([]);
   });
 
-  it("flags unsubmitted weeks for the client's work days only", () => {
-    const withLaterWeek: AggregationEntry[] = [
-      { date: "2026-10-19", type: "work", hours: 8, clientId: 1 }, // W43
-      { date: "2026-10-27", type: "work", hours: 8, clientId: 1 }, // W44
-      { date: "2026-10-28", type: "work", hours: 8, clientId: 2 }, // W44, other client
-    ];
-    const agg = aggregateMonth("2026-10", 1, withLaterWeek, new Set(["2026-W43"]), 1200);
+  it("flags weeks overlapping the month that have no entries and are not submitted", () => {
+    const submittedUntilW43 = new Set(octoberWeeks.filter((week) => week !== "2026-W44"));
+    const agg = aggregateMonth("2026-10", 1, entries, submittedUntilW43, 1200);
     expect(agg.unsubmittedWeeks).toEqual(["2026-W44"]);
+  });
+
+  it("requires a week spanning two months for both months", () => {
+    // 2026-W40 runs 2026-09-28 – 2026-10-04.
+    const septemberWeeks = new Set(["2026-W36", "2026-W37", "2026-W38", "2026-W39"]);
+    expect(aggregateMonth("2026-09", 1, entries, septemberWeeks, 1200).unsubmittedWeeks).toEqual([
+      "2026-W40",
+    ]);
+    expect(
+      aggregateMonth("2026-10", 1, entries, new Set(octoberWeeks.slice(1)), 1200).unsubmittedWeeks,
+    ).toEqual(["2026-W40"]);
+  });
+
+  it("lists every unsubmitted week when nothing is submitted", () => {
+    const agg = aggregateMonth("2026-10", 1, [], new Set(), 1200);
+    expect(agg.unsubmittedWeeks).toEqual(octoberWeeks);
   });
 });
 

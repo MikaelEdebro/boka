@@ -5,6 +5,7 @@ import { clients, dayEntries, invoices, weekReports } from "@/db/schema";
 import { upsertClient } from "@/db/clients";
 import { insertInvoice, updateInvoiceStatus } from "@/db/invoices";
 import { submitWeekReport } from "@/db/weekReports";
+import { submitMonth } from "@/test/db";
 import type { BokioInvoiceList } from "./bokio-invoices";
 import InvoicesPage from "./page";
 
@@ -65,7 +66,7 @@ describe("InvoicesPage", () => {
         { date: "2026-10-20", type: "work", hours: 6, clientId, updatedAt: "2026-10-20T08:00:00Z" },
       ])
       .run();
-    submitWeekReport(db, { year: 2026, week: 43 }, "2026-10-25T18:00:00.000Z");
+    submitMonth(db, "2026-10");
 
     render(await InvoicesPage());
 
@@ -97,7 +98,7 @@ describe("InvoicesPage", () => {
         { date: "2026-10-20", type: "work", hours: 5, clientId: b.id, updatedAt: "t" },
       ])
       .run();
-    submitWeekReport(db, { year: 2026, week: 43 }, "2026-10-25T18:00:00.000Z");
+    submitMonth(db, "2026-10");
 
     render(await InvoicesPage());
 
@@ -115,7 +116,23 @@ describe("InvoicesPage", () => {
 
     render(await InvoicesPage());
 
-    expect(screen.getByText(/Veckor ej inskickade: 2026-W43/)).toBeInTheDocument();
+    expect(
+      screen.getByText("Veckor ej inskickade: 2026-W40, 2026-W41, 2026-W42, 2026-W43, 2026-W44"),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Skapa faktura" })).toBeDisabled();
+  });
+
+  it("blocks a month whose last week has no entries and is not submitted", async () => {
+    const clientId = seedConfig();
+    const db = getDb();
+    db.insert(dayEntries)
+      .values({ date: "2026-10-19", type: "work", hours: 8, clientId, updatedAt: "2026-10-19T08:00:00Z" })
+      .run();
+    for (const week of [40, 41, 42, 43]) submitWeekReport(db, { year: 2026, week });
+
+    render(await InvoicesPage());
+
+    expect(screen.getByText("Veckor ej inskickade: 2026-W44")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Skapa faktura" })).toBeDisabled();
   });
 
@@ -207,7 +224,7 @@ describe("InvoicesPage", () => {
           })),
         )
         .run();
-      submitWeekReport(db, { year: 2026, week: 32 }, "2026-08-09T18:00:00.000Z");
+      submitMonth(db, "2026-08");
     }
 
     function handMadeInvoice(quantity: number, description = "Konsult (2026-08-01 - 2026-08-31)") {
