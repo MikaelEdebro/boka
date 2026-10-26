@@ -288,17 +288,21 @@ describe("WeekGrid", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("moves Tab from hours to the row's note and then to the next hours, skipping the type dropdown", async () => {
+  it("moves Tab from hours straight to the next row's hours, skipping the type dropdown and the note", async () => {
     const user = userEvent.setup();
     renderGrid();
 
+    expect(screen.getByLabelText("Kommentar 2026-10-19")).toBeInTheDocument();
     screen.getByLabelText("Timmar 2026-10-19").focus();
 
     await user.tab();
-    expect(screen.getByLabelText("Kommentar 2026-10-19")).toHaveFocus();
-
-    await user.tab();
     expect(screen.getByLabelText("Timmar 2026-10-20")).toHaveFocus();
+  });
+
+  it("keeps the note input out of the tab order", () => {
+    renderGrid();
+
+    expect(screen.getByLabelText("Kommentar 2026-10-19")).toHaveAttribute("tabindex", "-1");
   });
 
   it("keeps the type dropdown out of the tab order", () => {
@@ -328,7 +332,6 @@ describe("WeekGrid", () => {
     });
 
     screen.getByLabelText("Timmar 2026-10-19").focus();
-    await user.tab();
     await user.tab();
     await user.keyboard("6");
 

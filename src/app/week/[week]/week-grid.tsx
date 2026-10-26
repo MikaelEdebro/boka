@@ -297,6 +297,7 @@ export function WeekGrid({
                   <input
                     aria-label={`Kommentar ${row.date}`}
                     type="text"
+                    tabIndex={-1}
                     placeholder={isVab ? "Barn" : "Kommentar"}
                     list={isVab ? VAB_NOTES_LIST_ID : undefined}
                     value={state.note}
