@@ -13,7 +13,7 @@ import {
   weekPresetEntries,
   type WeekPreset,
 } from "@/lib/weekPresets";
-import { applyWeekPreset, reopenWeek, saveDay, submitWeek } from "./actions";
+import { applyWeekPreset, saveDay } from "./actions";
 
 type RowState = { type: DayType; hours: string; note: string; clientId: string };
 type SaveStatus = "idle" | "saving";
@@ -26,6 +26,7 @@ export type WeekGridRow = {
   hours: number | null;
   note: string | null;
   clientId: number | null;
+  locked: boolean;
 };
 
 function toState(row: WeekGridRow): RowState {
@@ -73,8 +74,6 @@ function useSelectOnFocus() {
 export type WeekGridProps = {
   week: string;
   rows: WeekGridRow[];
-  submitted: boolean;
-  submittedAt: string | null;
   vabNotes: string[];
   clients: ClientOption[];
   defaultClientId: number | null;
@@ -85,8 +84,6 @@ const VAB_NOTES_LIST_ID = "vab-notes";
 export function WeekGrid({
   week,
   rows,
-  submitted,
-  submittedAt,
   vabNotes,
   clients,
   defaultClientId,
@@ -104,8 +101,11 @@ export function WeekGrid({
   const showClients = clients.length > 1;
   const defaultClientValue = defaultClientId == null ? "" : String(defaultClientId);
 
+  const allLocked = rows.every((row) => row.locked);
+  const firstOpenIndex = rows.findIndex((row) => !row.locked);
+
   function focusNextHours(index: number, current: HTMLInputElement) {
-    const next = hourInputs.current[index + 1];
+    const next = hourInputs.current.slice(index + 1).find((input) => input && !input.disabled);
     // On the last input, blur to commit the value through the onBlur handler.
     if (next) next.focus();
     else current.blur();
@@ -126,11 +126,12 @@ export function WeekGrid({
   const labelColSpan = showClients ? 4 : 3;
 
   function applyPreset(preset: WeekPreset) {
+    const lockedDates = new Set(rows.filter((row) => row.locked).map((row) => row.date));
     const entries = weekPresetEntries(
       rows.map((row) => row.date),
       preset,
       defaultClientId,
-    );
+    ).filter((entry) => !lockedDates.has(entry.date));
     setStates((prev) => {
       const next = { ...prev };
       for (const entry of entries) next[entry.date] = inputToState(entry, defaultClientValue);
@@ -187,7 +188,7 @@ export function WeekGrid({
 
   return (
     <>
-      {!submitted && (
+      {!allLocked && (
         <div className="mt-6 flex flex-wrap gap-2">
           {WEEK_PRESETS.map((preset) => (
             <Button
@@ -244,7 +245,7 @@ export function WeekGrid({
                   <select
                     aria-label={`Typ ${row.date}`}
                     value={state.type}
-                    disabled={submitted}
+                    disabled={row.locked}
                     tabIndex={-1}
                     onChange={(event) =>
                       update(row.date, { type: event.target.value as DayType })
@@ -264,7 +265,7 @@ export function WeekGrid({
                       <select
                         aria-label={`Kund ${row.date}`}
                         value={state.clientId}
-                        disabled={submitted}
+                        disabled={row.locked}
                         tabIndex={-1}
                         onChange={(event) =>
                           update(row.date, { clientId: event.target.value })
@@ -291,9 +292,9 @@ export function WeekGrid({
                     pattern="[0-9]*([.,][0-9]+)?"
                     aria-invalid={hoursErrorMessage ? true : undefined}
                     aria-describedby={hoursErrorMessage ? hoursErrorId : undefined}
-                    autoFocus={index === 0 && !submitted}
+                    autoFocus={index === firstOpenIndex}
                     value={state.hours}
-                    disabled={submitted}
+                    disabled={row.locked}
                     onChange={(event) => editField(row.date, { hours: event.target.value })}
                     onKeyDown={(event) => {
                       if (event.key === "Enter") {
@@ -321,7 +322,7 @@ export function WeekGrid({
                     placeholder={isVab ? "Barn" : "Kommentar"}
                     list={isVab ? VAB_NOTES_LIST_ID : undefined}
                     value={state.note}
-                    disabled={submitted}
+                    disabled={row.locked}
                     onChange={(event) => editField(row.date, { note: event.target.value })}
                     onBlur={(event) => update(row.date, { note: event.target.value })}
                     {...selectOnFocus}
@@ -332,8 +333,12 @@ export function WeekGrid({
                   className="py-2 whitespace-nowrap text-muted-foreground"
                   aria-live="polite"
                 >
-                  {status === "saving" && (
-                    <Loader2 className="size-4 animate-spin" aria-label="Sparar" />
+                  {row.locked ? (
+                    <span className="text-xs text-muted-foreground">Fakturerad</span>
+                  ) : (
+                    status === "saving" && (
+                      <Loader2 className="size-4 animate-spin" aria-label="Sparar" />
+                    )
                   )}
                 </td>
               </tr>
@@ -360,62 +365,6 @@ export function WeekGrid({
             ))}
         </tfoot>
       </table>
-      <WeekSubmit week={week} submitted={submitted} submittedAt={submittedAt} />
     </>
-  );
-}
-
-function formatSubmittedAt(submittedAt: string | null): string {
-  return submittedAt ? submittedAt.slice(0, 10) : "";
-}
-
-function WeekSubmit({
-  week,
-  submitted,
-  submittedAt,
-}: {
-  week: string;
-  submitted: boolean;
-  submittedAt: string | null;
-}) {
-  const [pending, startTransition] = useTransition();
-
-  function run(action: (week: string) => Promise<void>, successMessage: string) {
-    startTransition(async () => {
-      try {
-        await action(week);
-        toast.success(successMessage);
-      } catch {
-        toast.error("Något gick fel");
-      }
-    });
-  }
-
-  if (submitted) {
-    return (
-      <div className="mt-6 flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">
-          Inskickad {formatSubmittedAt(submittedAt)}
-        </span>
-        <Button
-          type="button"
-          variant="outline"
-          disabled={pending}
-          onClick={() => run(reopenWeek, "Vecka öppnad")}
-        >
-          {pending && <Loader2 className="animate-spin" aria-hidden />}
-          Öppna igen
-        </Button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="mt-6 flex justify-end">
-      <Button type="button" disabled={pending} onClick={() => run(submitWeek, "Vecka inskickad")}>
-        {pending && <Loader2 className="animate-spin" aria-hidden />}
-        Skicka in vecka
-      </Button>
-    </div>
   );
 }

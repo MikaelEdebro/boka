@@ -50,6 +50,13 @@
       "when": 1792760934820,
       "tag": "0006_empty_menace",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1793027584349,
+      "tag": "0007_drop_week_reports",
+      "breakpoints": true
     }
   ]
 }

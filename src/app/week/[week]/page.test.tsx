@@ -1,6 +1,8 @@
 import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getDb } from "@/db/client";
+import { upsertClient } from "@/db/clients";
+import { insertInvoice } from "@/db/invoices";
 import { dayEntries } from "@/db/schema";
 import WeekPage from "./page";
 
@@ -116,5 +118,28 @@ describe("WeekPage", () => {
 
     expect(screen.getByLabelText("Typ 2026-01-01")).toHaveValue("work");
     expect(screen.getByLabelText("Timmar 2026-01-01")).toHaveValue("8");
+  });
+
+  it("locks the days of an invoiced month and leaves the rest of the week open", async () => {
+    const db = getDb();
+    const client = upsertClient(db, {
+      name: "Standard",
+      hourlyRate: 1000,
+      bokioCustomerId: "c1",
+      invoiceItemName: "Programmering",
+    });
+    insertInvoice(db, {
+      bokioInvoiceId: "inv-sep",
+      periodStart: "2026-09-01",
+      periodEnd: "2026-09-30",
+      hours: 160,
+      clientId: client.id,
+    });
+
+    render(await renderWeek("2026-W40"));
+
+    expect(screen.getByLabelText("Timmar 2026-09-30")).toBeDisabled();
+    expect(screen.getByLabelText("Timmar 2026-10-01")).toBeEnabled();
+    expect(screen.getAllByText("Fakturerad")).toHaveLength(3);
   });
 });

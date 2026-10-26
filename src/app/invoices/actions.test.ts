@@ -1,9 +1,9 @@
+import { inArray } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { dayEntries, invoices, type Client } from "@/db/schema";
 import { upsertClient } from "@/db/clients";
 import { insertInvoice, updateInvoiceStatus } from "@/db/invoices";
-import { submitWeekReport } from "@/db/weekReports";
-import { submitMonth, testDb } from "@/test/db";
+import { reportMonth, testDb } from "@/test/db";
 import type { Db } from "@/db/client";
 
 const revalidatePath = vi.fn();
@@ -41,14 +41,14 @@ function configure() {
   vi.stubEnv("BOKIO_COMPANY_ID", "company");
 }
 
-function seedSubmittedWorkWeek(clientId = defaultClientId) {
+function seedReportedMonth(clientId = defaultClientId) {
   db.insert(dayEntries)
     .values([
       { date: "2026-10-19", type: "work", hours: 8, clientId, updatedAt: "2026-10-19T08:00:00Z" },
       { date: "2026-10-20", type: "work", hours: 6, clientId, updatedAt: "2026-10-20T08:00:00Z" },
     ])
     .run();
-  submitMonth(db, "2026-10");
+  reportMonth(db, "2026-10");
 }
 
 describe("createInvoiceForMonth", () => {
@@ -59,9 +59,9 @@ describe("createInvoiceForMonth", () => {
     vi.unstubAllEnvs();
   });
 
-  it("creates a Bokio draft and records an invoices row for a fully submitted month", async () => {
+  it("creates a Bokio draft and records an invoices row for a fully reported month", async () => {
     configure();
-    seedSubmittedWorkWeek();
+    seedReportedMonth();
 
     const result = await createInvoiceForMonth("2026-10", defaultClientId);
 
@@ -97,7 +97,7 @@ describe("createInvoiceForMonth", () => {
         { date: "2026-10-20", type: "work", hours: 5, clientId: b.id, updatedAt: "t" },
       ])
       .run();
-    submitMonth(db, "2026-10");
+    reportMonth(db, "2026-10");
 
     createInvoice.mockReset().mockResolvedValueOnce("inv-a").mockResolvedValueOnce("inv-b");
 
@@ -124,7 +124,7 @@ describe("createInvoiceForMonth", () => {
 
   it("refuses a second invoice for the same month and client", async () => {
     configure();
-    seedSubmittedWorkWeek();
+    seedReportedMonth();
 
     expect(await createInvoiceForMonth("2026-10", defaultClientId)).toEqual({ ok: true });
 
@@ -136,7 +136,7 @@ describe("createInvoiceForMonth", () => {
     expect(db.select().from(invoices).all()).toHaveLength(1);
   });
 
-  it("refuses when the month has unsubmitted weeks with work hours", async () => {
+  it("refuses when the month has unreported weekdays", async () => {
     configure();
     db.insert(dayEntries)
       .values({
@@ -150,21 +150,22 @@ describe("createInvoiceForMonth", () => {
 
     const result = await createInvoiceForMonth("2026-10", defaultClientId);
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error).toMatch(/inskickad/i);
+    if (!result.ok) expect(result.error).toMatch(/^Dagar saknas: 2026-10-01, 2026-10-02, 2026-10-05/);
     expect(createInvoice).not.toHaveBeenCalled();
     expect(db.select().from(invoices).all()).toHaveLength(0);
   });
 
-  it("refuses when a week overlapping the month has no entries and is not submitted", async () => {
+  it("refuses with the missing dates when the last days of the month are unreported", async () => {
     configure();
     db.insert(dayEntries)
       .values({ date: "2026-10-19", type: "work", hours: 8, clientId: defaultClientId, updatedAt: "t" })
       .run();
-    for (const week of [40, 41, 42, 43]) submitWeekReport(db, { year: 2026, week });
+    reportMonth(db, "2026-10");
+    db.delete(dayEntries).where(inArray(dayEntries.date, ["2026-10-29", "2026-10-30"])).run();
 
     const result = await createInvoiceForMonth("2026-10", defaultClientId);
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error).toBe("Alla veckor är inte inskickade: 2026-W44");
+    if (!result.ok) expect(result.error).toBe("Dagar saknas: 2026-10-29, 2026-10-30");
     expect(createInvoice).not.toHaveBeenCalled();
   });
 
@@ -172,7 +173,7 @@ describe("createInvoiceForMonth", () => {
     vi.stubEnv("BOKIO_TOKEN", "token");
     vi.stubEnv("BOKIO_COMPANY_ID", "company");
     const client = addClient();
-    seedSubmittedWorkWeek(client.id);
+    seedReportedMonth(client.id);
 
     const result = await createInvoiceForMonth("2026-10", client.id + 999);
     expect(result.ok).toBe(false);
@@ -182,7 +183,7 @@ describe("createInvoiceForMonth", () => {
 
   it("refuses when Bokio env secrets are missing", async () => {
     const client = addClient();
-    seedSubmittedWorkWeek(client.id);
+    seedReportedMonth(client.id);
 
     const result = await createInvoiceForMonth("2026-10", client.id);
     expect(result.ok).toBe(false);
@@ -286,7 +287,7 @@ describe("refreshInvoiceStatuses", () => {
 
   it("makes a month invoiceable again after its invoice was removed in Bokio", async () => {
     configure();
-    seedSubmittedWorkWeek();
+    seedReportedMonth();
     seedInvoice("gone", defaultClientId);
     getInvoice.mockResolvedValue(null);
     createInvoice.mockReset().mockResolvedValue("inv-new");
@@ -327,7 +328,7 @@ describe("linkInvoice", () => {
 
   it("links the month to the Bokio invoice with app hours and Bokio status", async () => {
     configure();
-    seedSubmittedWorkWeek();
+    seedReportedMonth();
 
     const result = await linkInvoice("2026-10", defaultClientId, "inv-45");
 
@@ -352,7 +353,7 @@ describe("linkInvoice", () => {
 
   it("refuses a Bokio invoice that is already linked", async () => {
     configure();
-    seedSubmittedWorkWeek();
+    seedReportedMonth();
     insertInvoice(db, {
       bokioInvoiceId: "inv-45",
       periodStart: "2026-09-01",
@@ -370,7 +371,7 @@ describe("linkInvoice", () => {
 
   it("refuses a month that is already invoiced for the client", async () => {
     configure();
-    seedSubmittedWorkWeek();
+    seedReportedMonth();
     insertInvoice(db, {
       bokioInvoiceId: "inv-1",
       periodStart: "2026-10-01",
@@ -387,7 +388,7 @@ describe("linkInvoice", () => {
 
   it("refuses when the Bokio invoice belongs to another customer", async () => {
     configure();
-    seedSubmittedWorkWeek();
+    seedReportedMonth();
     getInvoice.mockResolvedValue({ status: "paid", invoiceNumber: "45", customerId: "cust-2" });
 
     const result = await linkInvoice("2026-10", defaultClientId, "inv-45");
@@ -399,7 +400,7 @@ describe("linkInvoice", () => {
 
   it("refuses when the Bokio invoice no longer exists", async () => {
     configure();
-    seedSubmittedWorkWeek();
+    seedReportedMonth();
     getInvoice.mockResolvedValue(null);
 
     const result = await linkInvoice("2026-10", defaultClientId, "inv-45");
@@ -409,16 +410,15 @@ describe("linkInvoice", () => {
     expect(db.select().from(invoices).all()).toHaveLength(0);
   });
 
-  it("refuses when the month has unsubmitted weeks", async () => {
+  it("refuses with the missing dates when the month has unreported weekdays", async () => {
     configure();
-    db.insert(dayEntries)
-      .values({ date: "2026-10-19", type: "work", hours: 8, clientId: defaultClientId, updatedAt: "t" })
-      .run();
+    seedReportedMonth();
+    db.delete(dayEntries).where(inArray(dayEntries.date, ["2026-10-29", "2026-10-30"])).run();
 
     const result = await linkInvoice("2026-10", defaultClientId, "inv-45");
 
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error).toMatch(/inskickad/i);
+    if (!result.ok) expect(result.error).toBe("Dagar saknas: 2026-10-29, 2026-10-30");
     expect(getInvoice).not.toHaveBeenCalled();
   });
 });

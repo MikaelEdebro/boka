@@ -7,10 +7,12 @@ import {
   invoicedKeys,
   invoiceLineDescription,
   linkedInvoiceMessage,
+  missingDays,
   monthKey,
   monthPeriod,
   parseYearMonth,
   refreshStatusMessage,
+  requiredDays,
   uninvoicedMonths,
   type AggregationEntry,
 } from "@/lib/invoicing";
@@ -62,8 +64,60 @@ describe("monthKey", () => {
   });
 });
 
-const octoberWeeks = ["2026-W40", "2026-W41", "2026-W42", "2026-W43", "2026-W44"];
-const submittedAll = new Set(["2026-W36", "2026-W37", "2026-W38", "2026-W39", ...octoberWeeks]);
+describe("requiredDays", () => {
+  it("lists every weekday of the month and skips weekends", () => {
+    const days = requiredDays("2026-10");
+    expect(days).toHaveLength(22);
+    expect(days[0]).toBe("2026-10-01");
+    expect(days.at(-1)).toBe("2026-10-30");
+    expect(days).not.toContain("2026-10-03");
+    expect(days).not.toContain("2026-10-04");
+    expect(days).not.toContain("2026-10-31");
+  });
+
+  it("skips weekday red days", () => {
+    const days = requiredDays("2026-01");
+    expect(days).not.toContain("2026-01-01");
+    expect(days).not.toContain("2026-01-06");
+    expect(days).toContain("2026-01-02");
+    expect(days).toContain("2026-01-05");
+  });
+});
+
+function reported(dates: string[]) {
+  return dates.map((date) => ({ date }));
+}
+
+describe("missingDays", () => {
+  it("is empty when every required day has an entry of any type", () => {
+    const entries = requiredDays("2026-10").map((date, index) => ({
+      date,
+      type: index % 2 === 0 ? "work" : "vab",
+    }));
+    expect(missingDays("2026-10", entries)).toEqual([]);
+  });
+
+  it("lists the weekdays with no entry, in date order", () => {
+    const entries = reported(requiredDays("2026-10").filter((date) => date < "2026-10-29"));
+    expect(missingDays("2026-10", entries)).toEqual(["2026-10-29", "2026-10-30"]);
+  });
+
+  it("does not require red days or weekends", () => {
+    const entries = reported(requiredDays("2026-01"));
+    expect(missingDays("2026-01", entries)).toEqual([]);
+  });
+
+  it("ignores entries outside the month", () => {
+    // 2026-W40 runs 2026-09-28 – 2026-10-04, so a week of entries straddles the boundary.
+    const entries = reported([
+      ...requiredDays("2026-09").filter((date) => date !== "2026-09-30"),
+      "2026-10-01",
+      "2026-10-02",
+    ]);
+    expect(missingDays("2026-09", entries)).toEqual(["2026-09-30"]);
+    expect(missingDays("2026-10", entries)).toHaveLength(20);
+  });
+});
 
 describe("invoicedKey", () => {
   it("joins the month and client id", () => {
@@ -81,6 +135,13 @@ describe("invoicedKeys", () => {
   });
 });
 
+function vabDays(dates: string[], existing: AggregationEntry[]): AggregationEntry[] {
+  const taken = new Set(existing.map((entry) => entry.date));
+  return dates
+    .filter((date) => !taken.has(date))
+    .map((date) => ({ date, type: "vab", hours: null, clientId: null }));
+}
+
 describe("aggregateMonth", () => {
   const entries: AggregationEntry[] = [
     { date: "2026-10-19", type: "work", hours: 8, clientId: 1 },
@@ -91,8 +152,10 @@ describe("aggregateMonth", () => {
     { date: "2026-09-30", type: "work", hours: 8, clientId: 1 },
   ];
 
+  const complete: AggregationEntry[] = [...entries, ...vabDays(requiredDays("2026-10"), entries)];
+
   it("sums only the client's work-day hours within the month", () => {
-    const agg = aggregateMonth("2026-10", 1, entries, submittedAll, 1200);
+    const agg = aggregateMonth("2026-10", 1, entries, 1200);
     expect(agg.hours).toBe(14.5);
     expect(agg.clientId).toBe(1);
     expect(agg.periodStart).toBe("2026-10-01");
@@ -100,41 +163,26 @@ describe("aggregateMonth", () => {
   });
 
   it("keeps clients separate within the same month", () => {
-    const agg = aggregateMonth("2026-10", 2, entries, submittedAll, 900);
+    const agg = aggregateMonth("2026-10", 2, entries, 900);
     expect(agg.hours).toBe(4);
     expect(agg.amount).toBe(4 * 900);
   });
 
   it("computes amount as hours × hourlyRate", () => {
-    const agg = aggregateMonth("2026-10", 1, entries, submittedAll, 1200);
+    const agg = aggregateMonth("2026-10", 1, entries, 1200);
     expect(agg.amount).toBe(14.5 * 1200);
   });
 
-  it("reports no unsubmitted weeks when every week overlapping the month is submitted", () => {
-    const agg = aggregateMonth("2026-10", 1, entries, new Set(octoberWeeks), 1200);
-    expect(agg.unsubmittedWeeks).toEqual([]);
+  it("reports no missing days when every weekday of the month is reported", () => {
+    expect(aggregateMonth("2026-10", 1, complete, 1200).missingDays).toEqual([]);
   });
 
-  it("flags weeks overlapping the month that have no entries and are not submitted", () => {
-    const submittedUntilW43 = new Set(octoberWeeks.filter((week) => week !== "2026-W44"));
-    const agg = aggregateMonth("2026-10", 1, entries, submittedUntilW43, 1200);
-    expect(agg.unsubmittedWeeks).toEqual(["2026-W44"]);
-  });
-
-  it("requires a week spanning two months for both months", () => {
-    // 2026-W40 runs 2026-09-28 – 2026-10-04.
-    const septemberWeeks = new Set(["2026-W36", "2026-W37", "2026-W38", "2026-W39"]);
-    expect(aggregateMonth("2026-09", 1, entries, septemberWeeks, 1200).unsubmittedWeeks).toEqual([
-      "2026-W40",
-    ]);
-    expect(
-      aggregateMonth("2026-10", 1, entries, new Set(octoberWeeks.slice(1)), 1200).unsubmittedWeeks,
-    ).toEqual(["2026-W40"]);
-  });
-
-  it("lists every unsubmitted week when nothing is submitted", () => {
-    const agg = aggregateMonth("2026-10", 1, [], new Set(), 1200);
-    expect(agg.unsubmittedWeeks).toEqual(octoberWeeks);
+  it("lists the unreported weekdays of the month", () => {
+    const agg = aggregateMonth("2026-10", 1, entries, 1200);
+    expect(agg.missingDays).toContain("2026-10-01");
+    expect(agg.missingDays).not.toContain("2026-10-19");
+    expect(agg.missingDays).not.toContain("2026-10-21");
+    expect(agg.missingDays).toHaveLength(22 - 5);
   });
 });
 
@@ -152,7 +200,7 @@ describe("uninvoicedMonths", () => {
   ];
 
   it("returns one aggregation per (month, client), newest month first", () => {
-    const rows = uninvoicedMonths(entries, submittedAll, clients, new Set());
+    const rows = uninvoicedMonths(entries, clients, new Set());
     expect(rows.map((m) => [m.yearMonth, m.clientId])).toEqual([
       ["2026-10", 1],
       ["2026-10", 2],
@@ -162,7 +210,7 @@ describe("uninvoicedMonths", () => {
   });
 
   it("excludes (month, client) pairs already covered by an invoice", () => {
-    const rows = uninvoicedMonths(entries, submittedAll, clients, new Set([invoicedKey("2026-10", 1)]));
+    const rows = uninvoicedMonths(entries, clients, new Set([invoicedKey("2026-10", 1)]));
     expect(rows.map((m) => [m.yearMonth, m.clientId])).toEqual([
       ["2026-10", 2],
       ["2026-09", 1],
@@ -173,7 +221,7 @@ describe("uninvoicedMonths", () => {
     const vacationOnly: AggregationEntry[] = [
       { date: "2026-10-20", type: "vacation", hours: null, clientId: null },
     ];
-    expect(uninvoicedMonths(vacationOnly, submittedAll, clients, new Set())).toEqual([]);
+    expect(uninvoicedMonths(vacationOnly, clients, new Set())).toEqual([]);
   });
 });
 

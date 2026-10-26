@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { dayEntries } from "@/db/schema";
 import { upsertClient } from "@/db/clients";
 import { upsertDayEntry } from "@/db/dayEntries";
-import { submitWeekReport } from "@/db/weekReports";
+import { insertInvoice } from "@/db/invoices";
 import { testDb } from "@/test/db";
 import type { Db } from "@/db/client";
 
@@ -82,11 +82,40 @@ describe("applyWeekPreset", () => {
     expect(db.select().from(dayEntries).all()).toHaveLength(0);
   });
 
-  it("refuses to change a submitted week", async () => {
-    submitWeekReport(db, { year: 2026, week: 43 }, "2026-10-26T00:00:00.000Z");
+  it("skips the days of an invoiced month and fills the open ones", async () => {
+    // 2026-W40 runs 2026-09-28 – 2026-10-04; September is invoiced.
+    insertInvoice(db, {
+      bokioInvoiceId: "inv-1",
+      periodStart: "2026-09-01",
+      periodEnd: "2026-09-30",
+      hours: 160,
+      clientId: defaultClientId,
+    });
+    upsertDayEntry(db, { date: "2026-09-28", type: "sick", hours: null, note: null, clientId: null }, "t");
 
-    await expect(applyWeekPreset("2026-W43", "work")).rejects.toThrow(/inskickad/i);
-    expect(db.select().from(dayEntries).all()).toHaveLength(0);
+    await applyWeekPreset("2026-W40", "work");
+
+    const rows = rowsByDate();
+    expect(rows["2026-09-28"]).toMatchObject({ type: "sick" });
+    expect(rows["2026-09-29"]).toBeUndefined();
+    expect(rows["2026-09-30"]).toBeUndefined();
+    expect(rows["2026-10-01"]).toMatchObject({ type: "work", hours: 8 });
+    expect(rows["2026-10-02"]).toMatchObject({ type: "work", hours: 8 });
+  });
+
+  it("leaves an invoiced month untouched by the clear preset", async () => {
+    insertInvoice(db, {
+      bokioInvoiceId: "inv-1",
+      periodStart: "2026-10-01",
+      periodEnd: "2026-10-31",
+      hours: 160,
+      clientId: defaultClientId,
+    });
+    upsertDayEntry(db, { date: "2026-10-20", type: "vab", hours: null, note: null, clientId: null }, "t");
+
+    await applyWeekPreset("2026-W43", "clear");
+
+    expect(rowsByDate()["2026-10-20"]).toMatchObject({ type: "vab" });
   });
 
   it("rejects an invalid week param", async () => {

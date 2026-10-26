@@ -6,22 +6,21 @@ import { getDb } from "@/db/client";
 import { getClient } from "@/db/clients";
 import {
   deleteInvoice,
-  getWorkDays,
+  getAggregationDays,
   insertInvoice,
   listInvoices,
   updateInvoiceStatus,
 } from "@/db/invoices";
-import { listWeekReports } from "@/db/weekReports";
 import {
   aggregateMonth,
   invoicedKey,
   invoicedKeys,
   invoiceLineDescription,
+  missingDaysMessage,
   parseYearMonth,
 } from "@/lib/invoicing";
 import type { ActionResult } from "@/lib/actionResult";
 import { getSecretsStatus } from "@/lib/settings";
-import { formatWeek } from "@/lib/week";
 
 export async function createInvoiceForMonth(
   yearMonth: string,
@@ -93,22 +92,13 @@ function invoiceableMonthOrThrow(yearMonth: string, clientId: number) {
     throw new Error("Månaden är redan fakturerad för kunden.");
   }
 
-  const submittedWeeks = new Set(
-    listWeekReports(db).map((report) => formatWeek({ year: report.isoYear, week: report.isoWeek })),
-  );
-  const aggregation = aggregateMonth(
-    yearMonth,
-    clientId,
-    getWorkDays(db),
-    submittedWeeks,
-    client.hourlyRate,
-  );
+  const aggregation = aggregateMonth(yearMonth, clientId, getAggregationDays(db), client.hourlyRate);
 
   if (aggregation.hours === 0) {
     throw new Error("Inga arbetstimmar att fakturera för månaden.");
   }
-  if (aggregation.unsubmittedWeeks.length > 0) {
-    throw new Error(`Alla veckor är inte inskickade: ${aggregation.unsubmittedWeeks.join(", ")}`);
+  if (aggregation.missingDays.length > 0) {
+    throw new Error(missingDaysMessage(aggregation.missingDays));
   }
 
   return { db, client, aggregation };

@@ -6,8 +6,9 @@ import { getDb } from "@/db/client";
 import { listClients } from "@/db/clients";
 import { getVabNotes } from "@/db/dayEntries";
 import { type DayEntry, dayEntries } from "@/db/schema";
-import { getWeekReport } from "@/db/weekReports";
+import { listInvoices } from "@/db/invoices";
 import { isSwedishHoliday } from "@/lib/holidays";
+import { invoicedMonths, monthKey } from "@/lib/invoicing";
 import {
   currentWeek,
   formatDate,
@@ -44,7 +45,9 @@ export default async function WeekPage({
   const clients = listClients(db);
   const defaultClientId = clients.find((client) => client.isDefault)?.id ?? null;
 
-  const rows: WeekGridRow[] = dates.map((date, index) => {
+  const invoiced = invoicedMonths(listInvoices(db));
+
+  function rowValues(date: string, index: number): Omit<WeekGridRow, "locked"> {
     const entry = entries.get(date);
     if (entry) {
       return {
@@ -64,9 +67,13 @@ export default async function WeekPage({
     // New work rows pre-select the default client so the common case is one
     // click of hours and done.
     return { date, type: "work", hours: null, note: null, clientId: defaultClientId };
-  });
+  }
 
-  const report = getWeekReport(db, week);
+  const rows: WeekGridRow[] = dates.map((date, index) => ({
+    ...rowValues(date, index),
+    locked: invoiced.has(monthKey(date)),
+  }));
+
   const vabNotes = getVabNotes(db);
 
   return (
@@ -102,8 +109,6 @@ export default async function WeekPage({
       <WeekGrid
         week={formatWeek(week)}
         rows={rows}
-        submitted={report !== undefined}
-        submittedAt={report?.submittedAt ?? null}
         vabNotes={vabNotes}
         clients={clients.map((client) => ({ id: client.id, name: client.name }))}
         defaultClientId={defaultClientId}

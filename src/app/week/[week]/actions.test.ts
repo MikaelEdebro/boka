@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { dayEntries, weekReports } from "@/db/schema";
+import { dayEntries } from "@/db/schema";
 import { upsertClient } from "@/db/clients";
-import { submitWeekReport } from "@/db/weekReports";
+import { deleteInvoice, insertInvoice } from "@/db/invoices";
 import { testDb } from "@/test/db";
 import type { Db } from "@/db/client";
 
@@ -14,7 +14,7 @@ vi.mock("@/db/client", async (importOriginal) => ({
   getDb: () => db,
 }));
 
-import { reopenWeek, saveDay, submitWeek } from "./actions";
+import { saveDay } from "./actions";
 
 describe("saveDay", () => {
   let clientId: number;
@@ -71,43 +71,46 @@ describe("saveDay", () => {
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 
-  it("rejects writes to a submitted week without changing data", async () => {
-    submitWeekReport(db, { year: 2026, week: 43 }, "2026-10-25T18:00:00.000Z");
+  it("rejects writes to a date in an invoiced month without changing data", async () => {
+    insertInvoice(db, {
+      bokioInvoiceId: "inv-1",
+      periodStart: "2026-10-01",
+      periodEnd: "2026-10-31",
+      hours: 160,
+      clientId,
+    });
 
     await expect(
       saveDay({ date: "2026-10-19", type: "work", hours: "8", clientId: String(clientId) }),
-    ).rejects.toThrow(/inskickad/i);
+    ).rejects.toThrow("Månaden är fakturerad");
     expect(db.select().from(dayEntries).all()).toHaveLength(0);
     expect(revalidatePath).not.toHaveBeenCalled();
   });
-});
 
-describe("submitWeek / reopenWeek", () => {
-  beforeEach(() => {
-    db = testDb();
-    revalidatePath.mockClear();
+  it("allows writes once the month's invoice is removed", async () => {
+    const invoice = insertInvoice(db, {
+      bokioInvoiceId: "inv-1",
+      periodStart: "2026-10-01",
+      periodEnd: "2026-10-31",
+      hours: 160,
+      clientId,
+    });
+    deleteInvoice(db, invoice.id);
+
+    await saveDay({ date: "2026-10-19", type: "work", hours: "8", clientId: String(clientId) });
+    expect(db.select().from(dayEntries).all()).toHaveLength(1);
   });
 
-  it("submits a week and revalidates its path", async () => {
-    await submitWeek("2026-W43");
+  it("allows writes to a month next to an invoiced one", async () => {
+    insertInvoice(db, {
+      bokioInvoiceId: "inv-1",
+      periodStart: "2026-09-01",
+      periodEnd: "2026-09-30",
+      hours: 160,
+      clientId,
+    });
 
-    const rows = db.select().from(weekReports).all();
-    expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject({ isoYear: 2026, isoWeek: 43 });
-    expect(typeof rows[0].submittedAt).toBe("string");
-    expect(revalidatePath).toHaveBeenCalledWith("/week/2026-W43");
-  });
-
-  it("reopens a submitted week and revalidates its path", async () => {
-    await submitWeek("2026-W43");
-    await reopenWeek("2026-W43");
-
-    expect(db.select().from(weekReports).all()).toHaveLength(0);
-    expect(revalidatePath).toHaveBeenLastCalledWith("/week/2026-W43");
-  });
-
-  it("rejects an invalid week param", async () => {
-    await expect(submitWeek("not-a-week")).rejects.toThrow();
-    expect(db.select().from(weekReports).all()).toHaveLength(0);
+    await saveDay({ date: "2026-10-01", type: "work", hours: "8", clientId: String(clientId) });
+    expect(db.select().from(dayEntries).all()).toHaveLength(1);
   });
 });

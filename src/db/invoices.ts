@@ -44,14 +44,14 @@ export function insertInvoice(
     .get();
 }
 
-export type WorkDay = {
+export type AggregationDay = {
   date: string;
   type: DayType;
   hours: number | null;
   clientId: number | null;
 };
 
-export function getWorkDays(db: Db): WorkDay[] {
+export function getAggregationDays(db: Db): AggregationDay[] {
   return db
     .select({
       date: dayEntries.date,
@@ -60,6 +60,6 @@ export function getWorkDays(db: Db): WorkDay[] {
       clientId: dayEntries.clientId,
     })
     .from(dayEntries)
-    .where(eq(dayEntries.type, "work"))
+    .orderBy(dayEntries.date)
     .all();
 }

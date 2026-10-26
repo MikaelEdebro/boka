@@ -4,13 +4,9 @@ import type { ComponentProps } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const saveDay = vi.fn((..._args: unknown[]) => Promise.resolve());
-const submitWeek = vi.fn((..._args: unknown[]) => Promise.resolve());
-const reopenWeek = vi.fn((..._args: unknown[]) => Promise.resolve());
 const applyWeekPreset = vi.fn((..._args: unknown[]) => Promise.resolve());
 vi.mock("./actions", () => ({
   saveDay: (...args: unknown[]) => saveDay(...args),
-  submitWeek: (...args: unknown[]) => submitWeek(...args),
-  reopenWeek: (...args: unknown[]) => reopenWeek(...args),
   applyWeekPreset: (...args: unknown[]) => applyWeekPreset(...args),
 }));
 
@@ -23,8 +19,8 @@ vi.mock("sonner", () => ({
 import { WeekGrid, type WeekGridRow } from "./week-grid";
 
 const rows: WeekGridRow[] = [
-  { date: "2026-10-19", type: "work", hours: 8, note: null, clientId: 1 },
-  { date: "2026-10-20", type: "work", hours: null, note: null, clientId: 1 },
+  { date: "2026-10-19", type: "work", hours: 8, note: null, clientId: 1, locked: false },
+  { date: "2026-10-20", type: "work", hours: null, note: null, clientId: 1, locked: false },
 ];
 
 function renderGrid(props: Partial<ComponentProps<typeof WeekGrid>> = {}) {
@@ -32,8 +28,6 @@ function renderGrid(props: Partial<ComponentProps<typeof WeekGrid>> = {}) {
     <WeekGrid
       week="2026-W43"
       rows={rows}
-      submitted={false}
-      submittedAt={null}
       vabNotes={[]}
       clients={[{ id: 1, name: "Acme" }]}
       defaultClientId={1}
@@ -45,8 +39,6 @@ function renderGrid(props: Partial<ComponentProps<typeof WeekGrid>> = {}) {
 describe("WeekGrid", () => {
   beforeEach(() => {
     saveDay.mockClear().mockImplementation(() => Promise.resolve());
-    submitWeek.mockClear().mockImplementation(() => Promise.resolve());
-    reopenWeek.mockClear().mockImplementation(() => Promise.resolve());
     applyWeekPreset.mockClear().mockImplementation(() => Promise.resolve());
     toastSuccess.mockClear();
     toastError.mockClear();
@@ -62,8 +54,8 @@ describe("WeekGrid", () => {
     expect(screen.getByText("16")).toBeInTheDocument();
   });
 
-  it("hides the preset pills when the week is submitted", () => {
-    renderGrid({ submitted: true, submittedAt: "2026-10-25T18:00:00.000Z" });
+  it("hides the preset pills when every day of the week is invoiced", () => {
+    renderGrid({ rows: rows.map((row) => ({ ...row, locked: true })) });
 
     expect(
       screen.queryByRole("button", { name: "Jobbat hela veckan" }),
@@ -112,22 +104,6 @@ describe("WeekGrid", () => {
     });
 
     await waitFor(() => expect(toastError).toHaveBeenCalledWith("Kunde inte spara dagen"));
-  });
-
-  it("toasts after the week is submitted", async () => {
-    renderGrid();
-
-    fireEvent.click(screen.getByRole("button", { name: "Skicka in vecka" }));
-
-    await waitFor(() => expect(toastSuccess).toHaveBeenCalledWith("Vecka inskickad"));
-  });
-
-  it("toasts after the week is reopened", async () => {
-    renderGrid({ submitted: true, submittedAt: "2026-10-25T18:00:00.000Z" });
-
-    fireEvent.click(screen.getByRole("button", { name: "Öppna igen" }));
-
-    await waitFor(() => expect(toastSuccess).toHaveBeenCalledWith("Vecka öppnad"));
   });
 
   it("saves hours on blur and updates the total", () => {
@@ -243,7 +219,9 @@ describe("WeekGrid", () => {
 
   it("shows a note input on a leave row and saves it on blur", () => {
     renderGrid({
-      rows: [{ date: "2026-10-19", type: "leave", hours: null, note: null, clientId: null }],
+      rows: [
+        { date: "2026-10-19", type: "leave", hours: null, note: null, clientId: null, locked: false },
+      ],
     });
 
     const note = screen.getByLabelText("Kommentar 2026-10-19");
@@ -322,23 +300,65 @@ describe("WeekGrid", () => {
     expect(datalist?.querySelectorAll("option")).toHaveLength(2);
   });
 
-  it("submits the week from the submit button", () => {
-    renderGrid();
-
-    fireEvent.click(screen.getByRole("button", { name: "Skicka in vecka" }));
-
-    expect(submitWeek).toHaveBeenCalledWith("2026-W43");
-  });
-
-  it("locks the inputs and shows the submitted date when submitted", () => {
-    renderGrid({ submitted: true, submittedAt: "2026-10-25T18:00:00.000Z" });
+  it("disables the inputs of an invoiced day and labels it Fakturerad", () => {
+    renderGrid({ rows: [{ ...rows[0], locked: true }, rows[1]] });
 
     expect(screen.getByLabelText("Typ 2026-10-19")).toBeDisabled();
     expect(screen.getByLabelText("Timmar 2026-10-19")).toBeDisabled();
-    expect(screen.getByText("Inskickad 2026-10-25")).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "Skicka in vecka" }),
-    ).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Kommentar 2026-10-19")).toBeDisabled();
+    const lockedRow = screen.getByLabelText("Timmar 2026-10-19").closest("tr") as HTMLElement;
+    expect(within(lockedRow).getByText("Fakturerad")).toHaveClass("text-muted-foreground");
+
+    expect(screen.getByLabelText("Timmar 2026-10-20")).toBeEnabled();
+    const openRow = screen.getByLabelText("Timmar 2026-10-20").closest("tr") as HTMLElement;
+    expect(within(openRow).queryByText("Fakturerad")).not.toBeInTheDocument();
+  });
+
+  it("disables the Kund select of an invoiced day", () => {
+    renderGrid({
+      rows: [{ ...rows[0], locked: true }, rows[1]],
+      clients: [
+        { id: 1, name: "Acme" },
+        { id: 2, name: "Globex" },
+      ],
+    });
+
+    expect(screen.getByLabelText("Kund 2026-10-19")).toBeDisabled();
+    expect(screen.getByLabelText("Kund 2026-10-20")).toBeEnabled();
+  });
+
+  it("leaves invoiced days unchanged when a preset is applied", () => {
+    renderGrid({ rows: [{ ...rows[0], locked: true }, rows[1]] });
+
+    fireEvent.click(screen.getByRole("button", { name: "Semester hela veckan" }));
+
+    expect(applyWeekPreset).toHaveBeenCalledWith("2026-W43", "vacation");
+    expect(screen.getByLabelText("Typ 2026-10-19")).toHaveValue("work");
+    expect(screen.getByLabelText("Timmar 2026-10-19")).toHaveValue("8");
+    expect(screen.getByLabelText("Typ 2026-10-20")).toHaveValue("vacation");
+  });
+
+  it("autofocuses the first open day's hours when earlier days are invoiced", () => {
+    renderGrid({ rows: [{ ...rows[0], locked: true }, rows[1]] });
+
+    expect(screen.getByLabelText("Timmar 2026-10-20")).toHaveFocus();
+  });
+
+  it("commits the last open day on Enter when the following days are invoiced", () => {
+    renderGrid({ rows: [rows[1], { ...rows[0], date: "2026-10-21", locked: true }] });
+
+    const input = screen.getByLabelText("Timmar 2026-10-20");
+    input.focus();
+    fireEvent.change(input, { target: { value: "6" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    expect(input).not.toHaveFocus();
+  });
+
+  it("does not show the week submit button any more", () => {
+    renderGrid();
+
+    expect(screen.queryByRole("button", { name: "Skicka in vecka" })).not.toBeInTheDocument();
   });
 
   it("moves Tab from hours straight to the next row's hours, skipping the type dropdown and the note", async () => {
@@ -379,8 +399,8 @@ describe("WeekGrid", () => {
     const user = userEvent.setup();
     renderGrid({
       rows: [
-        { date: "2026-10-19", type: "work", hours: null, note: null, clientId: 1 },
-        { date: "2026-10-20", type: "work", hours: 8, note: null, clientId: 1 },
+        { date: "2026-10-19", type: "work", hours: null, note: null, clientId: 1, locked: false },
+        { date: "2026-10-20", type: "work", hours: 8, note: null, clientId: 1, locked: false },
       ],
     });
 
@@ -395,8 +415,8 @@ describe("WeekGrid", () => {
     const user = userEvent.setup();
     renderGrid({
       rows: [
-        { date: "2026-10-19", type: "work", hours: 8, note: null, clientId: 1 },
-        { date: "2026-10-20", type: "work", hours: 8, note: null, clientId: 1 },
+        { date: "2026-10-19", type: "work", hours: 8, note: null, clientId: 1, locked: false },
+        { date: "2026-10-20", type: "work", hours: 8, note: null, clientId: 1, locked: false },
       ],
     });
 
@@ -422,8 +442,8 @@ describe("WeekGrid", () => {
     const user = userEvent.setup();
     renderGrid({
       rows: [
-        { date: "2026-10-19", type: "work", hours: 8, note: null, clientId: 1 },
-        { date: "2026-10-20", type: "vab", hours: null, note: "Stina", clientId: null },
+        { date: "2026-10-19", type: "work", hours: 8, note: null, clientId: 1, locked: false },
+        { date: "2026-10-20", type: "vab", hours: null, note: "Stina", clientId: null, locked: false },
       ],
     });
 
@@ -433,18 +453,10 @@ describe("WeekGrid", () => {
     expect(screen.getByLabelText("Kommentar 2026-10-20")).toHaveValue("Olle");
   });
 
-  it("autofocuses Monday's hours input when the week is not submitted", () => {
+  it("autofocuses Monday's hours input", () => {
     renderGrid();
 
     expect(screen.getByLabelText("Timmar 2026-10-19")).toHaveFocus();
-  });
-
-  it("reopens the week from the reopen button", () => {
-    renderGrid({ submitted: true, submittedAt: "2026-10-25T18:00:00.000Z" });
-
-    fireEvent.click(screen.getByRole("button", { name: "Öppna igen" }));
-
-    expect(reopenWeek).toHaveBeenCalledWith("2026-W43");
   });
 
   const twoClients = [
@@ -510,8 +522,8 @@ describe("WeekGrid", () => {
     const { container } = renderGrid({
       clients: twoClients,
       rows: [
-        { date: "2026-10-19", type: "work", hours: 8, note: null, clientId: 1 },
-        { date: "2026-10-20", type: "work", hours: 4, note: null, clientId: 2 },
+        { date: "2026-10-19", type: "work", hours: 8, note: null, clientId: 1, locked: false },
+        { date: "2026-10-20", type: "work", hours: 4, note: null, clientId: 2, locked: false },
       ],
     });
 

@@ -1,4 +1,4 @@
-import { integer, primaryKey, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 export const DAY_TYPES = ["work", "vacation", "leave", "vab", "sick", "parental", "holiday"] as const;
 export type DayType = (typeof DAY_TYPES)[number];
@@ -14,16 +14,6 @@ export const dayEntries = sqliteTable("day_entries", {
   clientId: integer("client_id").references(() => clients.id),
   updatedAt: text("updated_at").notNull(),
 });
-
-export const weekReports = sqliteTable(
-  "week_reports",
-  {
-    isoYear: integer("iso_year").notNull(),
-    isoWeek: integer("iso_week").notNull(),
-    submittedAt: text("submitted_at").notNull(),
-  },
-  (t) => [primaryKey({ columns: [t.isoYear, t.isoWeek] })],
-);
 
 export const settings = sqliteTable("settings", {
   id: integer("id").primaryKey(),
@@ -57,7 +47,6 @@ export const invoices = sqliteTable("invoices", {
 });
 
 export type DayEntry = typeof dayEntries.$inferSelect;
-export type WeekReport = typeof weekReports.$inferSelect;
 export type Settings = typeof settings.$inferSelect;
 export type Invoice = typeof invoices.$inferSelect;
 export type Client = typeof clients.$inferSelect;

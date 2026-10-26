@@ -3,13 +3,13 @@ import { AlertTriangle } from "lucide-react";
 import { StatusBadge } from "@/components/status-badge";
 import { getDb } from "@/db/client";
 import { listClients } from "@/db/clients";
-import { getWorkDays, listInvoices } from "@/db/invoices";
+import { getAggregationDays, listInvoices } from "@/db/invoices";
 import type { Client, Invoice } from "@/db/schema";
-import { listWeekReports } from "@/db/weekReports";
 import {
   invoicedKey,
   invoicedKeys,
   invoiceLineDescription,
+  missingDaysMessage,
   monthKey,
   uninvoicedMonths,
   type MonthAggregation,
@@ -21,7 +21,6 @@ import {
 } from "@/lib/invoiceMatching";
 import { getSecretsStatus } from "@/lib/settings";
 import { cn } from "@/lib/utils";
-import { formatWeek } from "@/lib/week";
 import { CreateInvoiceButton } from "./create-invoice-button";
 import { refreshInvoiceStatuses } from "./actions";
 import { type BokioInvoiceList, loadBokioInvoiceList } from "./bokio-invoices";
@@ -115,11 +114,8 @@ export default async function InvoicesPage() {
   const clients = listClients(db);
   const clientsById = new Map(clients.map((client) => [client.id, client]));
 
-  const submittedWeeks = new Set(
-    listWeekReports(db).map((report) => formatWeek({ year: report.isoYear, week: report.isoWeek })),
-  );
   const invoices = listInvoices(db);
-  const months = uninvoicedMonths(getWorkDays(db), submittedWeeks, clients, invoicedKeys(invoices));
+  const months = uninvoicedMonths(getAggregationDays(db), clients, invoicedKeys(invoices));
   const linkedBokioInvoiceIds = new Set(invoices.map((invoice) => invoice.bokioInvoiceId));
   const bokioInvoices: BokioInvoiceList =
     envReady && months.length > 0
@@ -128,9 +124,7 @@ export default async function InvoicesPage() {
 
   function blockedReason(month: MonthAggregation): string | null {
     if (!envReady) return "Bokio-nycklar saknas i .env.";
-    if (month.unsubmittedWeeks.length > 0) {
-      return `Veckor ej inskickade: ${month.unsubmittedWeeks.join(", ")}`;
-    }
+    if (month.missingDays.length > 0) return missingDaysMessage(month.missingDays);
     return null;
   }
 

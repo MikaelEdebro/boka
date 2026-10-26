@@ -1,6 +1,6 @@
-import { endOfMonth, format, parseISO } from "date-fns";
+import { eachDayOfInterval, endOfMonth, format, isWeekend, parseISO } from "date-fns";
 import type { DayType } from "@/db/schema";
-import { formatWeek, weeksOverlappingMonth } from "@/lib/week";
+import { isSwedishHoliday } from "@/lib/holidays";
 
 const YEAR_MONTH_RE = /^(\d{4})-(\d{2})$/;
 
@@ -41,6 +41,23 @@ export function monthPeriod(yearMonth: string): MonthPeriod {
   return { periodStart, periodEnd };
 }
 
+export function requiredDays(yearMonth: string): string[] {
+  const { periodStart, periodEnd } = monthPeriod(yearMonth);
+  return eachDayOfInterval({ start: parseISO(periodStart), end: parseISO(periodEnd) })
+    .filter((day) => !isWeekend(day))
+    .map((day) => format(day, "yyyy-MM-dd"))
+    .filter((date) => !isSwedishHoliday(date));
+}
+
+export function missingDays(yearMonth: string, entries: { date: string }[]): string[] {
+  const reported = new Set(entries.map((entry) => entry.date));
+  return requiredDays(yearMonth).filter((date) => !reported.has(date));
+}
+
+export function missingDaysMessage(missing: string[]): string {
+  return `Dagar saknas: ${missing.join(", ")}`;
+}
+
 export type AggregationEntry = {
   date: string;
   type: DayType;
@@ -56,7 +73,7 @@ export type MonthAggregation = {
   hours: number;
   hourlyRate: number;
   amount: number;
-  unsubmittedWeeks: string[];
+  missingDays: string[];
 };
 
 export type ClientRate = { id: number; hourlyRate: number };
@@ -70,6 +87,12 @@ export function invoicedKeys(invoices: { periodStart: string; clientId: number }
     invoices.map((invoice) => invoicedKey(monthKey(invoice.periodStart), invoice.clientId)),
   );
 }
+
+export function invoicedMonths(invoices: { periodStart: string }[]): Set<string> {
+  return new Set(invoices.map((invoice) => monthKey(invoice.periodStart)));
+}
+
+export const INVOICED_MONTH_ERROR = "Månaden är fakturerad";
 
 export function refreshStatusMessage(removed: number): string {
   if (removed === 0) return "Status uppdaterad från Bokio";
@@ -96,7 +119,6 @@ export function aggregateMonth(
   yearMonth: string,
   clientId: number,
   entries: AggregationEntry[],
-  submittedWeeks: ReadonlySet<string>,
   hourlyRate: number,
 ): MonthAggregation {
   const workDays = entries.filter(
@@ -105,10 +127,6 @@ export function aggregateMonth(
   );
 
   const hours = workDays.reduce((sum, entry) => sum + entry.hours, 0);
-
-  const unsubmittedWeeks = weeksOverlappingMonth(yearMonth)
-    .map(formatWeek)
-    .filter((label) => !submittedWeeks.has(label));
 
   const { periodStart, periodEnd } = monthPeriod(yearMonth);
   return {
@@ -119,13 +137,12 @@ export function aggregateMonth(
     hours,
     hourlyRate,
     amount: hours * hourlyRate,
-    unsubmittedWeeks,
+    missingDays: missingDays(yearMonth, entries),
   };
 }
 
 export function uninvoicedMonths(
   entries: AggregationEntry[],
-  submittedWeeks: ReadonlySet<string>,
   clients: ClientRate[],
   invoiced: ReadonlySet<string>,
 ): MonthAggregation[] {
@@ -147,6 +164,6 @@ export function uninvoicedMonths(
         : b.yearMonth.localeCompare(a.yearMonth),
     )
     .map(([, pair]) =>
-      aggregateMonth(pair.yearMonth, pair.clientId, entries, submittedWeeks, rates.get(pair.clientId)!),
+      aggregateMonth(pair.yearMonth, pair.clientId, entries, rates.get(pair.clientId)!),
     );
 }

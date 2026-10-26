@@ -21,7 +21,8 @@ Weekly time reporting for a one-person Swedish company. Single user, runs locall
 - Weeks are ISO weeks, Monday first. Route format `/week/2026-W43`.
 - Dates are stored as `YYYY-MM-DD` strings, timestamps as ISO 8601 UTC strings.
 - Day types: `work` (needs hours), `vacation` (semester), `vab` (home with sick child), `sick` (sjuk), `parental` (föräldraledig), `holiday` (helgdag / red day).
-- A week is "submitted" when a `week_reports` row exists. Submitted weeks are read-only until reopened.
+- A weekday (Mon–Fri) is "reported" when it has a `day_entries` row of any type or is a Swedish red day. Weekends are never required. A month can only be invoiced when all its weekdays are reported (`missingDays` in `src/lib/invoicing.ts`).
+- A month is "locked" when an `invoices` row exists for it (created or linked): its days are read-only in the week grid. Removing the invoice unlocks it.
 - Secrets (`BOKIO_TOKEN`, `BOKIO_COMPANY_ID`) come from `.env`, never the DB. See `.env.example`.
 
 ## Conventions

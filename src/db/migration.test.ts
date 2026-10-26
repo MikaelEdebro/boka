@@ -134,3 +134,54 @@ describe("0004 invoice status columns", () => {
     db.close();
   });
 });
+
+describe("0007 drop week_reports", () => {
+  it("drops only week_reports and keeps day entries, clients, invoices and settings", () => {
+    const db = new Database(":memory:");
+    for (const prefix of ["0000", "0001", "0002", "0003", "0004", "0005", "0006"]) {
+      db.exec(migrationSql(prefix));
+    }
+
+    db.prepare(
+      `INSERT INTO clients (name, hourly_rate, bokio_customer_id, invoice_item_name, is_default, created_at)
+       VALUES ('Standard', 1000, 'c1', 'Programmering', 1, '2026-01-01T00:00:00.000Z')`,
+    ).run();
+    const clientId = (db.prepare(`SELECT id FROM clients`).get() as { id: number }).id;
+    db.prepare(
+      `INSERT INTO day_entries (date, type, hours, note, client_id, updated_at)
+       VALUES ('2026-10-19', 'work', 8, 'Kod', ?, 't'),
+              ('2026-10-20', 'vab', NULL, 'Elsa', NULL, 't')`,
+    ).run(clientId);
+    db.prepare(
+      `INSERT INTO invoices (bokio_invoice_id, period_start, period_end, hours, client_id, created_at)
+       VALUES ('inv-1', '2026-09-01', '2026-09-30', 120, ?, 't')`,
+    ).run(clientId);
+    db.prepare(`INSERT INTO settings (id, theme) VALUES (1, 'dark')`).run();
+    db.prepare(
+      `INSERT INTO week_reports (iso_year, iso_week, submitted_at) VALUES (2026, 43, 't')`,
+    ).run();
+
+    db.exec(migrationSql("0007"));
+
+    const tables = db
+      .prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'`)
+      .all()
+      .map((row) => (row as { name: string }).name)
+      .sort();
+    expect(tables).toEqual(["clients", "day_entries", "invoices", "settings"]);
+    expect(
+      db.prepare(`SELECT date, type, hours, note, client_id as clientId FROM day_entries ORDER BY date`).all(),
+    ).toEqual([
+      { date: "2026-10-19", type: "work", hours: 8, note: "Kod", clientId },
+      { date: "2026-10-20", type: "vab", hours: null, note: "Elsa", clientId: null },
+    ]);
+    expect(db.prepare(`SELECT bokio_invoice_id as id FROM invoices`).all()).toEqual([{ id: "inv-1" }]);
+    expect(db.prepare(`SELECT theme FROM settings`).all()).toEqual([{ theme: "dark" }]);
+
+    db.close();
+  });
+
+  it("contains nothing but the DROP TABLE", () => {
+    expect(migrationSql("0007").trim()).toBe("DROP TABLE `week_reports`;");
+  });
+});

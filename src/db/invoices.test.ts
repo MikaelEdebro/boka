@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { dayEntries } from "@/db/schema";
 import { upsertClient } from "@/db/clients";
-import { deleteInvoice, getWorkDays, insertInvoice, listInvoices, updateInvoiceStatus } from "@/db/invoices";
+import { deleteInvoice, getAggregationDays, insertInvoice, listInvoices, updateInvoiceStatus } from "@/db/invoices";
 import { testDb } from "@/test/db";
 import type { Db } from "@/db/client";
 
@@ -127,7 +127,7 @@ describe("invoices db", () => {
     expect(listInvoices(db).map((i) => i.id)).toEqual([kept.id]);
   });
 
-  it("returns only work-day entries with their client", () => {
+  it("returns day entries of every type with their client", () => {
     const db = testDb();
     const clientId = seedClient(db);
     db.insert(dayEntries)
@@ -137,7 +137,9 @@ describe("invoices db", () => {
       ])
       .run();
 
-    const workDays = getWorkDays(db);
-    expect(workDays).toEqual([{ date: "2026-10-19", type: "work", hours: 8, clientId }]);
+    expect(getAggregationDays(db)).toEqual([
+      { date: "2026-10-19", type: "work", hours: 8, clientId },
+      { date: "2026-10-21", type: "vacation", hours: null, clientId: null },
+    ]);
   });
 });

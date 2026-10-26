@@ -1,11 +1,11 @@
+import { inArray } from "drizzle-orm";
 import { render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getDb } from "@/db/client";
-import { clients, dayEntries, invoices, weekReports } from "@/db/schema";
+import { clients, dayEntries, invoices } from "@/db/schema";
 import { upsertClient } from "@/db/clients";
 import { insertInvoice, updateInvoiceStatus } from "@/db/invoices";
-import { submitWeekReport } from "@/db/weekReports";
-import { submitMonth } from "@/test/db";
+import { reportMonth } from "@/test/db";
 import type { BokioInvoiceList } from "./bokio-invoices";
 import InvoicesPage from "./page";
 
@@ -21,7 +21,7 @@ vi.mock("./bokio-invoices", () => ({ loadBokioInvoiceList: () => loadBokioInvoic
 
 beforeEach(() => {
   const db = getDb();
-  for (const table of [dayEntries, weekReports, invoices, clients]) db.delete(table).run();
+  for (const table of [dayEntries, invoices, clients]) db.delete(table).run();
   refreshInvoiceStatuses.mockClear();
   loadBokioInvoiceList.mockReset().mockResolvedValue({ ok: true, invoices: [] });
 });
@@ -66,7 +66,7 @@ describe("InvoicesPage", () => {
         { date: "2026-10-20", type: "work", hours: 6, clientId, updatedAt: "2026-10-20T08:00:00Z" },
       ])
       .run();
-    submitMonth(db, "2026-10");
+    reportMonth(db, "2026-10");
 
     render(await InvoicesPage());
 
@@ -98,7 +98,7 @@ describe("InvoicesPage", () => {
         { date: "2026-10-20", type: "work", hours: 5, clientId: b.id, updatedAt: "t" },
       ])
       .run();
-    submitMonth(db, "2026-10");
+    reportMonth(db, "2026-10");
 
     render(await InvoicesPage());
 
@@ -107,32 +107,18 @@ describe("InvoicesPage", () => {
     expect(screen.getAllByRole("button", { name: "Skapa faktura" })).toHaveLength(2);
   });
 
-  it("blocks a month with unsubmitted weeks and explains why", async () => {
-    const clientId = seedConfig();
-    getDb()
-      .insert(dayEntries)
-      .values({ date: "2026-10-19", type: "work", hours: 8, clientId, updatedAt: "2026-10-19T08:00:00Z" })
-      .run();
-
-    render(await InvoicesPage());
-
-    expect(
-      screen.getByText("Veckor ej inskickade: 2026-W40, 2026-W41, 2026-W42, 2026-W43, 2026-W44"),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Skapa faktura" })).toBeDisabled();
-  });
-
-  it("blocks a month whose last week has no entries and is not submitted", async () => {
+  it("blocks a month with unreported weekdays and lists the missing dates", async () => {
     const clientId = seedConfig();
     const db = getDb();
     db.insert(dayEntries)
       .values({ date: "2026-10-19", type: "work", hours: 8, clientId, updatedAt: "2026-10-19T08:00:00Z" })
       .run();
-    for (const week of [40, 41, 42, 43]) submitWeekReport(db, { year: 2026, week });
+    reportMonth(db, "2026-10");
+    db.delete(dayEntries).where(inArray(dayEntries.date, ["2026-10-29", "2026-10-30"])).run();
 
     render(await InvoicesPage());
 
-    expect(screen.getByText("Veckor ej inskickade: 2026-W44")).toBeInTheDocument();
+    expect(screen.getByText("Dagar saknas: 2026-10-29, 2026-10-30")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Skapa faktura" })).toBeDisabled();
   });
 
@@ -224,7 +210,7 @@ describe("InvoicesPage", () => {
           })),
         )
         .run();
-      submitMonth(db, "2026-08");
+      reportMonth(db, "2026-08");
     }
 
     function handMadeInvoice(quantity: number, description = "Konsult (2026-08-01 - 2026-08-31)") {
