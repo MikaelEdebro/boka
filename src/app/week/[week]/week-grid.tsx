@@ -333,12 +333,9 @@ export function WeekGrid({
                   className="py-2 whitespace-nowrap text-muted-foreground"
                   aria-live="polite"
                 >
-                  {row.locked ? (
-                    <span className="text-xs text-muted-foreground">Fakturerad</span>
-                  ) : (
-                    status === "saving" && (
-                      <Loader2 className="size-4 animate-spin" aria-label="Sparar" />
-                    )
+                  {row.locked && <span className="text-xs text-muted-foreground">Fakturerad</span>}
+                  {!row.locked && status === "saving" && (
+                    <Loader2 className="size-4 animate-spin" aria-label="Sparar" />
                   )}
                 </td>
               </tr>
