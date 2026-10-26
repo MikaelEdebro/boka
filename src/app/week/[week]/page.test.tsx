@@ -1,15 +1,21 @@
 import { render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getDb } from "@/db/client";
 import { upsertClient } from "@/db/clients";
 import { insertInvoice } from "@/db/invoices";
-import { dayEntries } from "@/db/schema";
+import { clients, dayEntries, invoices } from "@/db/schema";
 import WeekPage from "./page";
 
 const notFound = vi.hoisted(() => vi.fn(() => {
   throw new Error("NEXT_NOT_FOUND");
 }));
 vi.mock("next/navigation", () => ({ notFound }));
+
+beforeEach(() => {
+  getDb().delete(dayEntries).run();
+  getDb().delete(invoices).run();
+  getDb().delete(clients).run();
+});
 
 afterEach(() => {
   vi.useRealTimers();
@@ -20,16 +26,57 @@ function renderWeek(week: string) {
 }
 
 describe("WeekPage", () => {
-  it("renders the week heading and all seven weekdays", async () => {
+  it("renders the week heading and only Monday–Friday when no client shows weekends", async () => {
+    upsertClient(getDb(), {
+      name: "Standard",
+      hourlyRate: 1000,
+      bokioCustomerId: "c1",
+      invoiceItemName: "Programmering",
+    });
+
     render(await renderWeek("2026-W43"));
 
     expect(
       screen.getByRole("heading", { name: "Vecka 43, 2026" }),
     ).toBeInTheDocument();
+    expect(screen.getAllByLabelText(/^Timmar /)).toHaveLength(5);
     expect(screen.getByText("Måndag")).toBeInTheDocument();
-    expect(screen.getByText("Söndag")).toBeInTheDocument();
+    expect(screen.getByText("Fredag")).toBeInTheDocument();
+    expect(screen.queryByText("Lördag")).not.toBeInTheDocument();
+    expect(screen.queryByText("Söndag")).not.toBeInTheDocument();
     expect(screen.getByText("2026-10-19")).toBeInTheDocument();
+    expect(screen.getByText("2026-10-23")).toBeInTheDocument();
+  });
+
+  it("renders all seven days when a client shows weekends", async () => {
+    upsertClient(getDb(), {
+      name: "Helg",
+      hourlyRate: 1000,
+      bokioCustomerId: "c1",
+      invoiceItemName: "Programmering",
+      showWeekends: true,
+    });
+
+    render(await renderWeek("2026-W43"));
+
+    expect(screen.getAllByLabelText(/^Timmar /)).toHaveLength(7);
+    expect(screen.getByText("Lördag")).toBeInTheDocument();
+    expect(screen.getByText("Söndag")).toBeInTheDocument();
     expect(screen.getByText("2026-10-25")).toBeInTheDocument();
+  });
+
+  it("shows a Saturday that already has an entry even when weekends are off", async () => {
+    getDb()
+      .insert(dayEntries)
+      .values([{ date: "2026-10-24", type: "work", hours: 3, updatedAt: "2026-10-24T08:00:00Z" }])
+      .run();
+
+    render(await renderWeek("2026-W43"));
+
+    expect(screen.getAllByLabelText(/^Timmar /)).toHaveLength(6);
+    expect(screen.getByText("Lördag")).toBeInTheDocument();
+    expect(screen.getByLabelText("Timmar 2026-10-24")).toHaveValue("3");
+    expect(screen.queryByText("Söndag")).not.toBeInTheDocument();
   });
 
   it("renders seeded day entries and sums work hours", async () => {
@@ -99,7 +146,15 @@ describe("WeekPage", () => {
     expect(screen.getByLabelText("Timmar 2026-01-02")).toHaveValue("");
   });
 
-  it("leaves a red day that falls on a weekend empty", async () => {
+  it("leaves a red day that falls on a shown weekend empty", async () => {
+    upsertClient(getDb(), {
+      name: "Helg",
+      hourlyRate: 1000,
+      bokioCustomerId: "c1",
+      invoiceItemName: "Programmering",
+      showWeekends: true,
+    });
+
     render(await renderWeek("2026-W23"));
 
     expect(screen.getByLabelText("Typ 2026-06-06")).toHaveValue("work");

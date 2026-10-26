@@ -57,6 +57,13 @@
       "when": 1793027584349,
       "tag": "0007_drop_week_reports",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1793032042363,
+      "tag": "0008_clients_show_weekends",
+      "breakpoints": true
     }
   ]
 }

@@ -9,6 +9,7 @@ export type ClientValues = {
   hourlyRate: number;
   bokioCustomerId: string;
   invoiceItemName: string;
+  showWeekends?: boolean;
 };
 
 export function listClients(db: Db): Client[] {

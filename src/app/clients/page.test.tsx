@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getDb } from "@/db/client";
 import { upsertClient } from "@/db/clients";
@@ -62,6 +62,28 @@ describe("ClientsPage", async () => {
     expect(screen.getByRole("button", { name: "Gör till standard" })).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Ta bort" })).toHaveLength(2);
     expect(screen.getAllByRole("link", { name: "Redigera" })).toHaveLength(2);
+  });
+
+  it("shows each client's Visa helger setting in a Helger column", async () => {
+    upsertClient(getDb(), {
+      name: "Acme",
+      hourlyRate: 1200,
+      bokioCustomerId: "cust-1",
+      invoiceItemName: "Konsult",
+      showWeekends: true,
+    });
+    upsertClient(getDb(), {
+      name: "Globex",
+      hourlyRate: 900,
+      bokioCustomerId: "cust-2",
+      invoiceItemName: "Programmering",
+    });
+
+    render(await ClientsPage());
+
+    expect(screen.getByRole("columnheader", { name: "Helger" })).toBeInTheDocument();
+    expect(within(screen.getByRole("row", { name: /Acme/ })).getByText("Ja")).toBeInTheDocument();
+    expect(within(screen.getByRole("row", { name: /Globex/ })).getByText("Nej")).toBeInTheDocument();
   });
 
   it("disables Ta bort with an explanation for clients that have records", async () => {

@@ -3,9 +3,11 @@ import {
   currentWeek,
   formatDate,
   formatWeek,
+  isWeekend,
   nextWeek,
   parseWeek,
   prevWeek,
+  visibleWeekDates,
   weekDays,
 } from "@/lib/week";
 
@@ -91,5 +93,33 @@ describe("currentWeek", () => {
     expect(week.week).toBeGreaterThanOrEqual(1);
     expect(week.week).toBeLessThanOrEqual(53);
     expect(formatWeek(week)).toMatch(/^\d{4}-W\d{2}$/);
+  });
+});
+
+describe("isWeekend", () => {
+  it("is true for Saturday and Sunday only", () => {
+    expect(isWeekend("2026-10-23")).toBe(false);
+    expect(isWeekend("2026-10-24")).toBe(true);
+    expect(isWeekend("2026-10-25")).toBe(true);
+    expect(isWeekend("2026-10-26")).toBe(false);
+  });
+});
+
+describe("visibleWeekDates", () => {
+  const week43 = weekDays({ year: 2026, week: 43 }).map(formatDate);
+
+  it("keeps Monday–Friday only when weekends are off and have no entries", () => {
+    expect(visibleWeekDates(week43, false, new Set())).toEqual(week43.slice(0, 5));
+  });
+
+  it("keeps all seven days when weekends are shown", () => {
+    expect(visibleWeekDates(week43, true, new Set())).toEqual(week43);
+  });
+
+  it("keeps a weekend day that already has an entry", () => {
+    expect(visibleWeekDates(week43, false, new Set(["2026-10-24"]))).toEqual([
+      ...week43.slice(0, 5),
+      "2026-10-24",
+    ]);
   });
 });

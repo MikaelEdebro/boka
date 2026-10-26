@@ -185,3 +185,23 @@ describe("0007 drop week_reports", () => {
     expect(migrationSql("0007").trim()).toBe("DROP TABLE `week_reports`;");
   });
 });
+
+describe("0008 clients show_weekends", () => {
+  it("adds show_weekends as false for existing clients", () => {
+    const db = new Database(":memory:");
+    for (const prefix of ["0000", "0001", "0002", "0003", "0004", "0005", "0006", "0007"]) {
+      db.exec(migrationSql(prefix));
+    }
+    db.prepare(
+      `INSERT INTO clients (name, hourly_rate, bokio_customer_id, invoice_item_name, is_default, created_at)
+       VALUES ('Standard', 1000, 'c1', 'Programmering', 1, '2026-01-01T00:00:00.000Z')`,
+    ).run();
+
+    db.exec(migrationSql("0008"));
+
+    expect(db.prepare(`SELECT name, show_weekends as showWeekends FROM clients`).all()).toEqual([
+      { name: "Standard", showWeekends: 0 },
+    ]);
+    db.close();
+  });
+});

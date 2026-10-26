@@ -9,6 +9,7 @@ export const clientSchema = z.object({
     (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
     z.string().trim().default(DEFAULT_INVOICE_ITEM_NAME),
   ),
+  showWeekends: z.boolean().default(false),
 });
 
 export const clientFormSchema = clientSchema.omit({ name: true });

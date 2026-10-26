@@ -5,7 +5,7 @@ import { useRef, useState, useTransition, type FocusEvent, type MouseEvent } fro
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { DAY_TYPES, type DayType } from "@/db/schema";
-import { DAY_TYPE_LABELS, WEEKDAY_LABELS } from "@/lib/labels";
+import { DAY_TYPE_LABELS, weekdayLabel } from "@/lib/labels";
 import { hoursError, normalizeHours, type DayInput } from "@/lib/dayEntry";
 import {
   WEEK_PRESETS,
@@ -77,6 +77,7 @@ export type WeekGridProps = {
   vabNotes: string[];
   clients: ClientOption[];
   defaultClientId: number | null;
+  showWeekends?: boolean;
 };
 
 const VAB_NOTES_LIST_ID = "vab-notes";
@@ -87,6 +88,7 @@ export function WeekGrid({
   vabNotes,
   clients,
   defaultClientId,
+  showWeekends = false,
 }: WeekGridProps) {
   const [states, setStates] = useState<Record<string, RowState>>(() =>
     Object.fromEntries(rows.map((row) => [row.date, toState(row)])),
@@ -127,11 +129,10 @@ export function WeekGrid({
 
   function applyPreset(preset: WeekPreset) {
     const lockedDates = new Set(rows.filter((row) => row.locked).map((row) => row.date));
-    const entries = weekPresetEntries(
-      rows.map((row) => row.date),
-      preset,
-      defaultClientId,
-    ).filter((entry) => !lockedDates.has(entry.date));
+    const dates = rows.map((row) => row.date);
+    const entries = weekPresetEntries(dates, preset, defaultClientId, { showWeekends }).filter(
+      (entry) => !lockedDates.has(entry.date),
+    );
     setStates((prev) => {
       const next = { ...prev };
       for (const entry of entries) next[entry.date] = inputToState(entry, defaultClientValue);
@@ -141,7 +142,7 @@ export function WeekGrid({
     setHoursErrors({});
     startTransition(async () => {
       try {
-        await applyWeekPreset(week, preset);
+        await applyWeekPreset(week, preset, dates);
       } catch {
         toast.error("Kunde inte spara veckan");
       }
@@ -239,7 +240,7 @@ export function WeekGrid({
             const hoursErrorId = `hours-error-${row.date}`;
             return (
               <tr key={row.date} className="border-b">
-                <td className="py-2">{WEEKDAY_LABELS[index]}</td>
+                <td className="py-2">{weekdayLabel(row.date)}</td>
                 <td className="py-2">{row.date}</td>
                 <td className="py-2">
                   <select

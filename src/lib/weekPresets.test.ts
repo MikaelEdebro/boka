@@ -98,6 +98,27 @@ describe("weekPresetEntries", () => {
     expect(entries[3]).toEqual({ date: "2026-01-01", type: "work", hours: "" });
   });
 
+  it("clears the weekend by its date, not its position, when weekends are hidden", () => {
+    const entries = weekPresetEntries(["2026-10-23", "2026-10-24"], "work", 7);
+
+    expect(entries).toEqual([
+      { date: "2026-10-23", type: "work", hours: 8, clientId: 7 },
+      { date: "2026-10-24", type: "work", hours: "" },
+    ]);
+  });
+
+  it("leaves the weekend untouched when weekends are shown", () => {
+    const entries = weekPresetEntries(plainWeek, "work", 7, { showWeekends: true });
+
+    expect(entries.map((entry) => entry.date)).toEqual(plainWeek.slice(0, 5));
+  });
+
+  it("leaves the weekend untouched by the clear preset when weekends are shown", () => {
+    const entries = weekPresetEntries(plainWeek, "clear", null, { showWeekends: true });
+
+    expect(entries.map((entry) => entry.date)).toEqual(plainWeek.slice(0, 5));
+  });
+
   it("exposes a Swedish label for each preset", () => {
     expect(WEEK_PRESET_LABELS.work).toBe("Jobbat hela veckan");
     expect(WEEK_PRESET_LABELS.leave).toBe("Ledig hela veckan");

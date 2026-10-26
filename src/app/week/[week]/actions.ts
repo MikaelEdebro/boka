@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getDb, type Db } from "@/db/client";
-import { getDefaultClient } from "@/db/clients";
+import { getDefaultClient, listClients } from "@/db/clients";
 import { deleteDayEntry, upsertDayEntry } from "@/db/dayEntries";
 import { listInvoices } from "@/db/invoices";
 import { parseDay, type DayInput, type ParsedDay } from "@/lib/dayEntry";
@@ -49,17 +49,23 @@ function requireWeek(weekParam: string): Week {
   return week;
 }
 
+// Only the dates the grid rendered are touched, so a hidden weekend day keeps
+// whatever it holds.
 export async function applyWeekPreset(
   weekParam: string,
   preset: WeekPreset,
+  renderedDates: string[],
 ): Promise<void> {
   const week = requireWeek(weekParam);
   const db = getDb();
   const locked = invoicedMonths(listInvoices(db));
 
-  const dates = weekDays(week).map(formatDate);
+  const dates = weekDays(week)
+    .map(formatDate)
+    .filter((date) => renderedDates.includes(date));
   const defaultClientId = getDefaultClient(db)?.id ?? null;
-  const entries = weekPresetEntries(dates, preset, defaultClientId).filter(
+  const showWeekends = listClients(db).some((client) => client.showWeekends);
+  const entries = weekPresetEntries(dates, preset, defaultClientId, { showWeekends }).filter(
     (entry) => !isLocked(locked, entry.date),
   );
 

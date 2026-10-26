@@ -5,6 +5,7 @@ import { upsertDayEntry } from "@/db/dayEntries";
 import { insertInvoice } from "@/db/invoices";
 import { testDb } from "@/test/db";
 import type { Db } from "@/db/client";
+import { formatDate, parseWeek, weekDays } from "@/lib/week";
 
 const revalidatePath = vi.fn();
 vi.mock("next/cache", () => ({
@@ -18,6 +19,10 @@ vi.mock("@/db/client", async (importOriginal) => ({
 }));
 
 import { applyWeekPreset } from "./actions";
+
+function allDates(weekParam: string): string[] {
+  return weekDays(parseWeek(weekParam)!).map(formatDate);
+}
 
 function rowsByDate() {
   return Object.fromEntries(
@@ -44,7 +49,7 @@ describe("applyWeekPreset", () => {
   });
 
   it("writes work 8h Mon–Fri billed to the default client and clears the weekend", async () => {
-    await applyWeekPreset("2026-W43", "work");
+    await applyWeekPreset("2026-W43", "work", allDates("2026-W43"));
 
     const rows = rowsByDate();
     for (const date of ["2026-10-19", "2026-10-20", "2026-10-21", "2026-10-22", "2026-10-23"]) {
@@ -59,7 +64,7 @@ describe("applyWeekPreset", () => {
     upsertDayEntry(db, { date: "2026-10-24", type: "work", hours: 5, note: null, clientId: null }, "t");
     upsertDayEntry(db, { date: "2026-10-19", type: "sick", hours: null, note: null, clientId: null }, "t");
 
-    await applyWeekPreset("2026-W43", "vacation");
+    await applyWeekPreset("2026-W43", "vacation", allDates("2026-W43"));
 
     const rows = rowsByDate();
     expect(rows["2026-10-19"]).toMatchObject({ type: "vacation", hours: null });
@@ -67,7 +72,7 @@ describe("applyWeekPreset", () => {
   });
 
   it("keeps a red day as holiday when filling the week", async () => {
-    await applyWeekPreset("2026-W01", "work");
+    await applyWeekPreset("2026-W01", "work", allDates("2026-W01"));
 
     const rows = rowsByDate();
     expect(rows["2026-01-01"]).toMatchObject({ type: "holiday" });
@@ -77,7 +82,7 @@ describe("applyWeekPreset", () => {
   it("clears every entry for the clear preset", async () => {
     upsertDayEntry(db, { date: "2026-10-20", type: "vab", hours: null, note: null, clientId: null }, "t");
 
-    await applyWeekPreset("2026-W43", "clear");
+    await applyWeekPreset("2026-W43", "clear", allDates("2026-W43"));
 
     expect(db.select().from(dayEntries).all()).toHaveLength(0);
   });
@@ -93,7 +98,7 @@ describe("applyWeekPreset", () => {
     });
     upsertDayEntry(db, { date: "2026-09-28", type: "sick", hours: null, note: null, clientId: null }, "t");
 
-    await applyWeekPreset("2026-W40", "work");
+    await applyWeekPreset("2026-W40", "work", allDates("2026-W40"));
 
     const rows = rowsByDate();
     expect(rows["2026-09-28"]).toMatchObject({ type: "sick" });
@@ -113,12 +118,45 @@ describe("applyWeekPreset", () => {
     });
     upsertDayEntry(db, { date: "2026-10-20", type: "vab", hours: null, note: null, clientId: null }, "t");
 
-    await applyWeekPreset("2026-W43", "clear");
+    await applyWeekPreset("2026-W43", "clear", allDates("2026-W43"));
 
     expect(rowsByDate()["2026-10-20"]).toMatchObject({ type: "vab" });
   });
 
+  it("leaves an existing Sunday entry intact when only Monday–Friday were rendered", async () => {
+    upsertDayEntry(db, { date: "2026-10-25", type: "work", hours: 4, note: null, clientId: null }, "t");
+
+    await applyWeekPreset("2026-W43", "clear", allDates("2026-W43").slice(0, 5));
+
+    expect(rowsByDate()["2026-10-25"]).toMatchObject({ type: "work", hours: 4 });
+  });
+
+  it("leaves rendered weekend hours untouched when a client shows weekends", async () => {
+    upsertClient(db, {
+      name: "Helg",
+      hourlyRate: 1000,
+      bokioCustomerId: "c2",
+      invoiceItemName: "Programmering",
+      showWeekends: true,
+    });
+    upsertDayEntry(db, { date: "2026-10-24", type: "work", hours: 5, note: null, clientId: null }, "t");
+
+    await applyWeekPreset("2026-W43", "work", allDates("2026-W43"));
+
+    const rows = rowsByDate();
+    expect(rows["2026-10-23"]).toMatchObject({ type: "work", hours: 8 });
+    expect(rows["2026-10-24"]).toMatchObject({ type: "work", hours: 5 });
+  });
+
+  it("ignores submitted dates outside the week", async () => {
+    upsertDayEntry(db, { date: "2026-10-26", type: "sick", hours: null, note: null, clientId: null }, "t");
+
+    await applyWeekPreset("2026-W43", "clear", ["2026-10-26"]);
+
+    expect(rowsByDate()["2026-10-26"]).toMatchObject({ type: "sick" });
+  });
+
   it("rejects an invalid week param", async () => {
-    await expect(applyWeekPreset("nope", "work")).rejects.toThrow(/[Oo]giltig/);
+    await expect(applyWeekPreset("nope", "work", [])).rejects.toThrow(/[Oo]giltig/);
   });
 });

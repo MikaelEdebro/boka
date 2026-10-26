@@ -2,6 +2,7 @@ import {
   addDays,
   addWeeks,
   format,
+  getISODay,
   getISOWeek,
   getISOWeekYear,
   parseISO,
@@ -69,4 +70,18 @@ export function currentWeek(): Week {
 export function weekForDate(date: string): Week {
   const parsed = parseISO(date);
   return { year: getISOWeekYear(parsed), week: getISOWeek(parsed) };
+}
+
+export function isWeekend(date: string): boolean {
+  return getISODay(parseISO(date)) >= 6;
+}
+
+// Weekends are shown when a client asks for them, and always when they already
+// hold an entry so existing data is never hidden.
+export function visibleWeekDates(
+  dates: string[],
+  showWeekends: boolean,
+  entryDates: ReadonlySet<string>,
+): string[] {
+  return dates.filter((date) => showWeekends || !isWeekend(date) || entryDates.has(date));
 }

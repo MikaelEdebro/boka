@@ -13,9 +13,11 @@ import {
   currentWeek,
   formatDate,
   formatWeek,
+  isWeekend,
   nextWeek,
   parseWeek,
   prevWeek,
+  visibleWeekDates,
   weekDays,
 } from "@/lib/week";
 import { WeekGrid, type WeekGridRow } from "./week-grid";
@@ -32,22 +34,24 @@ export default async function WeekPage({
   const today = currentWeek();
   const isCurrentWeek = today.year === week.year && today.week === week.week;
 
-  const dates = weekDays(week).map(formatDate);
+  const weekDates = weekDays(week).map(formatDate);
 
   const db = getDb();
   const dbRows = db
     .select()
     .from(dayEntries)
-    .where(inArray(dayEntries.date, dates))
+    .where(inArray(dayEntries.date, weekDates))
     .all();
   const entries = new Map<string, DayEntry>(dbRows.map((row) => [row.date, row]));
 
   const clients = listClients(db);
   const defaultClientId = clients.find((client) => client.isDefault)?.id ?? null;
+  const showWeekends = clients.some((client) => client.showWeekends);
+  const dates = visibleWeekDates(weekDates, showWeekends, new Set(entries.keys()));
 
   const invoiced = invoicedMonths(listInvoices(db));
 
-  function rowValues(date: string, index: number): Omit<WeekGridRow, "locked"> {
+  function rowValues(date: string): Omit<WeekGridRow, "locked"> {
     const entry = entries.get(date);
     if (entry) {
       return {
@@ -60,8 +64,7 @@ export default async function WeekPage({
     }
     // Pre-fill weekday red days as holiday with 0 hours. Not persisted until
     // the user saves; weekends stay empty.
-    const isWeekday = index < 5;
-    if (isWeekday && isSwedishHoliday(date)) {
+    if (!isWeekend(date) && isSwedishHoliday(date)) {
       return { date, type: "holiday", hours: 0, note: null, clientId: null };
     }
     // New work rows pre-select the default client so the common case is one
@@ -69,8 +72,8 @@ export default async function WeekPage({
     return { date, type: "work", hours: null, note: null, clientId: defaultClientId };
   }
 
-  const rows: WeekGridRow[] = dates.map((date, index) => ({
-    ...rowValues(date, index),
+  const rows: WeekGridRow[] = dates.map((date) => ({
+    ...rowValues(date),
     locked: invoiced.has(monthKey(date)),
   }));
 
@@ -112,6 +115,7 @@ export default async function WeekPage({
         vabNotes={vabNotes}
         clients={clients.map((client) => ({ id: client.id, name: client.name }))}
         defaultClientId={defaultClientId}
+        showWeekends={showWeekends}
       />
     </>
   );

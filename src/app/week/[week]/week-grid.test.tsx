@@ -49,9 +49,50 @@ describe("WeekGrid", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Jobbat hela veckan" }));
 
-    expect(applyWeekPreset).toHaveBeenCalledWith("2026-W43", "work");
+    expect(applyWeekPreset).toHaveBeenCalledWith("2026-W43", "work", ["2026-10-19", "2026-10-20"]);
     // Both rows now show work 8h, so the total reflects it immediately.
     expect(screen.getByText("16")).toBeInTheDocument();
+  });
+
+  it("labels the rows by their date's weekday, not their position", () => {
+    renderGrid({
+      rows: ["2026-10-21", "2026-10-23", "2026-10-25"].map((date) => ({ ...rows[1], date })),
+    });
+
+    expect(screen.getAllByRole("row").slice(1, 4).map((row) => row.firstChild?.textContent)).toEqual([
+      "Onsdag",
+      "Fredag",
+      "Söndag",
+    ]);
+  });
+
+  it("shows Måndag–Fredag for a Monday–Friday week and Lördag, Söndag for seven rows", () => {
+    const weekRows = (count: number) =>
+      Array.from({ length: count }, (_, offset) => ({ ...rows[1], date: `2026-10-${19 + offset}` }));
+
+    const { unmount } = renderGrid({ rows: weekRows(5) });
+    for (const label of ["Måndag", "Tisdag", "Onsdag", "Torsdag", "Fredag"]) {
+      expect(screen.getByText(label)).toBeInTheDocument();
+    }
+    expect(screen.queryByText("Lördag")).not.toBeInTheDocument();
+    unmount();
+
+    renderGrid({ rows: weekRows(7), showWeekends: true });
+    expect(screen.getByText("Lördag")).toBeInTheDocument();
+    expect(screen.getByText("Söndag")).toBeInTheDocument();
+  });
+
+  it("keeps weekend hours when a preset is applied with weekends shown", () => {
+    renderGrid({
+      rows: [rows[1], { ...rows[0], date: "2026-10-24", hours: 5 }],
+      showWeekends: true,
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Jobbat hela veckan" }));
+
+    expect(screen.getByLabelText("Timmar 2026-10-20")).toHaveValue("8");
+    expect(screen.getByLabelText("Timmar 2026-10-24")).toHaveValue("5");
+    expect(screen.getByText("13")).toBeInTheDocument();
   });
 
   it("hides the preset pills when every day of the week is invoiced", () => {
@@ -332,7 +373,10 @@ describe("WeekGrid", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Semester hela veckan" }));
 
-    expect(applyWeekPreset).toHaveBeenCalledWith("2026-W43", "vacation");
+    expect(applyWeekPreset).toHaveBeenCalledWith("2026-W43", "vacation", [
+      "2026-10-19",
+      "2026-10-20",
+    ]);
     expect(screen.getByLabelText("Typ 2026-10-19")).toHaveValue("work");
     expect(screen.getByLabelText("Timmar 2026-10-19")).toHaveValue("8");
     expect(screen.getByLabelText("Typ 2026-10-20")).toHaveValue("vacation");

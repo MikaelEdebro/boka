@@ -1,0 +1,1 @@
+ALTER TABLE `clients` ADD `show_weekends` integer DEFAULT false NOT NULL;

@@ -1,3 +1,4 @@
+import { getISODay, parseISO } from "date-fns";
 import type { DayType } from "@/db/schema";
 
 export const DAY_TYPE_LABELS: Record<DayType, string> = {
@@ -34,3 +35,7 @@ export const WEEKDAY_LABELS = [
   "Lördag",
   "Söndag",
 ] as const;
+
+export function weekdayLabel(date: string): string {
+  return WEEKDAY_LABELS[getISODay(parseISO(date)) - 1];
+}

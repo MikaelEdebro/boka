@@ -36,6 +36,7 @@ const storedClient: Client = {
   bokioCustomerId: "gone-42",
   invoiceItemName: "Programmering",
   isDefault: true,
+  showWeekends: false,
   createdAt: "2026-10-01T08:00:00Z",
 };
 
@@ -113,6 +114,34 @@ describe("ClientForm", () => {
     expect(submitted.get("bokioCustomerId")).toBe("c-7");
     expect(submitted.get("hourlyRate")).toBe("1200");
     expect(submitted.get("invoiceItemName")).toBe("Konsult");
+  });
+
+  it("has an unchecked Visa helger checkbox below Fakturarad for a new client", () => {
+    const { container } = render(<ClientForm bokioCustomers={customers} />);
+
+    const checkbox = screen.getByRole("checkbox", { name: "Visa helger" });
+    expect(checkbox).not.toBeChecked();
+    const fields = [...container.querySelectorAll("select, input:not([type=hidden])")];
+    expect(fields.indexOf(checkbox)).toBe(fields.indexOf(screen.getByLabelText("Fakturarad")) + 1);
+  });
+
+  it("submits showWeekends when Visa helger is checked", async () => {
+    saveClient.mockResolvedValue({ ok: true });
+    const user = userEvent.setup();
+
+    render(<ClientForm bokioCustomers={customers} />);
+    await user.selectOptions(screen.getByRole("combobox", { name: "Bokio-kund" }), "c-7");
+    await user.click(screen.getByRole("checkbox", { name: "Visa helger" }));
+    await user.click(screen.getByRole("button", { name: "Lägg till kund" }));
+
+    await waitFor(() => expect(saveClient).toHaveBeenCalled());
+    expect(saveClient.mock.calls[0][1].get("showWeekends")).toBe("on");
+  });
+
+  it("checks Visa helger when editing a client that shows weekends", () => {
+    render(<ClientForm client={{ ...storedClient, showWeekends: true }} bokioCustomers={customers} />);
+
+    expect(screen.getByRole("checkbox", { name: "Visa helger" })).toBeChecked();
   });
 
   it("puts the Bokio-kund select first", () => {

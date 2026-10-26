@@ -22,6 +22,7 @@ export async function saveClient(
       hourlyRate: formData.get("hourlyRate"),
       bokioCustomerId: formData.get("bokioCustomerId"),
       invoiceItemName: formData.get("invoiceItemName"),
+      showWeekends: formData.has("showWeekends"),
     });
     // Verify the id exists in Bokio so a client is never saved unverified.
     // Kept here (not in the Zod schema) so unit tests of the schema stay offline.

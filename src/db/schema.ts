@@ -27,6 +27,7 @@ export const clients = sqliteTable("clients", {
   bokioCustomerId: text("bokio_customer_id").notNull(),
   invoiceItemName: text("invoice_item_name").notNull().default("Programmering"),
   isDefault: integer("is_default", { mode: "boolean" }).notNull().default(false),
+  showWeekends: integer("show_weekends", { mode: "boolean" }).notNull().default(false),
   createdAt: text("created_at").notNull(),
 });
 

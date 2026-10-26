@@ -42,6 +42,7 @@ export default async function ClientsPage() {
                 <TableHead>Timpris</TableHead>
                 <TableHead>Bokio kund-ID</TableHead>
                 <TableHead>Fakturarad</TableHead>
+                <TableHead>Helger</TableHead>
                 <TableHead>Standard</TableHead>
                 <TableHead>Redigera</TableHead>
                 <TableHead>Ta bort</TableHead>
@@ -56,6 +57,7 @@ export default async function ClientsPage() {
                     {client.bokioCustomerId}
                   </TableCell>
                   <TableCell>{client.invoiceItemName}</TableCell>
+                  <TableCell>{client.showWeekends ? "Ja" : "Nej"}</TableCell>
                   <TableCell>
                     {client.isDefault ? (
                       <span className="font-medium">Standard</span>

@@ -83,6 +83,41 @@ describe("clients actions", () => {
     expect(listClients(db)[0]).toMatchObject({ name: "Acme AB", hourlyRate: 1500 });
   });
 
+  it("saveClient stores showWeekends false when the Visa helger checkbox is missing", async () => {
+    await saveClient(
+      null,
+      form({ hourlyRate: "1200", bokioCustomerId: "cust-1", invoiceItemName: "" }),
+    );
+
+    expect(listClients(db)[0].showWeekends).toBe(false);
+  });
+
+  it("saveClient stores showWeekends true when the Visa helger checkbox is present", async () => {
+    await saveClient(
+      null,
+      form({ hourlyRate: "1200", bokioCustomerId: "cust-1", invoiceItemName: "", showWeekends: "on" }),
+    );
+
+    expect(listClients(db)[0].showWeekends).toBe(true);
+  });
+
+  it("saveClient turns showWeekends off when an edit submits the checkbox unchecked", async () => {
+    const existing = upsertClient(db, {
+      name: "Acme",
+      hourlyRate: 1000,
+      bokioCustomerId: "cust-1",
+      invoiceItemName: "Programmering",
+      showWeekends: true,
+    });
+
+    await saveClient(
+      null,
+      form({ id: String(existing.id), hourlyRate: "1000", bokioCustomerId: "cust-1", invoiceItemName: "" }),
+    );
+
+    expect(listClients(db)[0].showWeekends).toBe(false);
+  });
+
   it("saveClient ignores a submitted name and stores the Bokio customer name", async () => {
     await saveClient(
       null,

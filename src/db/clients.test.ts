@@ -20,6 +20,21 @@ const base = {
 };
 
 describe("clients db", () => {
+  it("defaults showWeekends to false", () => {
+    const db = testDb();
+
+    expect(upsertClient(db, base).showWeekends).toBe(false);
+  });
+
+  it("round-trips showWeekends through upsertClient", () => {
+    const db = testDb();
+    const created = upsertClient(db, { ...base, showWeekends: true });
+    expect(getClient(db, created.id)?.showWeekends).toBe(true);
+
+    upsertClient(db, { ...base, id: created.id, showWeekends: false });
+    expect(getClient(db, created.id)?.showWeekends).toBe(false);
+  });
+
   it("makes the first created client the default automatically", () => {
     const db = testDb();
     const first = upsertClient(db, base);

@@ -106,6 +106,17 @@ export function ClientForm({
         />
       </div>
 
+      <div className="flex items-center gap-2">
+        <input
+          id="showWeekends"
+          name="showWeekends"
+          type="checkbox"
+          defaultChecked={client?.showWeekends ?? false}
+          className="size-4 accent-primary"
+        />
+        <Label htmlFor="showWeekends">Visa helger</Label>
+      </div>
+
       <div className="flex justify-end">
         <SubmitButton disabled={!bokioCustomers.ok}>{client ? "Spara" : "Lägg till kund"}</SubmitButton>
       </div>
