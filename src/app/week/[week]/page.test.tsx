@@ -116,19 +116,21 @@ describe("WeekPage", () => {
 
     render(await renderWeek("2026-W40"));
 
-    expect(screen.getByRole("link", { name: "Aktuell vecka" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Gå till aktuell vecka" })).toHaveAttribute(
       "href",
       "/week",
     );
+    expect(screen.queryByText("Aktuell vecka")).not.toBeInTheDocument();
   });
 
-  it("hides the current week link when showing the current week", async () => {
+  it("shows a current week badge instead of the link on the current week", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-10-21T12:00:00Z"));
 
     render(await renderWeek("2026-W43"));
 
-    expect(screen.queryByRole("link", { name: "Aktuell vecka" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /aktuell vecka/i })).not.toBeInTheDocument();
+    expect(screen.getByText("Aktuell vecka").closest("a")).toBeNull();
   });
 
   it("calls notFound for an invalid week param", async () => {

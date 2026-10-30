@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { inArray } from "drizzle-orm";
+import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { getDb } from "@/db/client";
 import { listClients } from "@/db/clients";
@@ -95,9 +96,11 @@ export default async function WeekPage({
               {week.year}
             </Link>
           </h1>
-          {!isCurrentWeek && (
+          {isCurrentWeek ? (
+            <Badge variant="secondary">Aktuell vecka</Badge>
+          ) : (
             <Link href="/week" className={buttonVariants({ variant: "outline", size: "sm" })}>
-              Aktuell vecka
+              Gå till aktuell vecka
             </Link>
           )}
         </div>
