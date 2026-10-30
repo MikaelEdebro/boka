@@ -184,6 +184,16 @@ describe("aggregateMonth", () => {
     expect(agg.missingDays).not.toContain("2026-10-21");
     expect(agg.missingDays).toHaveLength(22 - 5);
   });
+
+  it("bills the work row of a part-time VAB day and counts the date as reported", () => {
+    const partTime: AggregationEntry[] = [
+      { date: "2026-10-29", type: "vab", hours: 5, clientId: null },
+      { date: "2026-10-29", type: "work", hours: 3, clientId: 1 },
+    ];
+    const agg = aggregateMonth("2026-10", 1, partTime, 1200);
+    expect(agg.hours).toBe(3);
+    expect(agg.missingDays).not.toContain("2026-10-29");
+  });
 });
 
 describe("uninvoicedMonths", () => {

@@ -75,6 +75,27 @@ describe("YearPage", () => {
     expect(within(list).getByText(/2026-03-11/)).toBeInTheDocument();
   });
 
+  it("shows a part-time VAB day's hours and Heldag for a full-day VAB, counting one VAB day each", async () => {
+    const db = getDb();
+    const clientId = seedClient();
+    upsertDayEntry(db, { date: "2026-10-28", type: "vab", hours: null, note: "Stina", clientId: null }, "t");
+    upsertDayEntry(db, { date: "2026-10-29", type: "vab", hours: 5, note: "Joar", clientId: null }, "t");
+    upsertDayEntry(db, { date: "2026-10-29", type: "work", hours: 3, note: null, clientId }, "t");
+
+    render(await YearPage({ params: Promise.resolve({ year: "2026" }) }));
+
+    const list = screen.getByRole("list", { name: "VAB-dagar" });
+    const partTime = within(list).getByText("2026-10-29").closest("li")!;
+    expect(partTime).toHaveTextContent(/2026-10-29\s*Joar\s*5 h/);
+    const fullDay = within(list).getByText("2026-10-28").closest("li")!;
+    expect(fullDay).toHaveTextContent(/2026-10-28\s*Stina\s*Heldag/);
+
+    const oktober = screen.getByRole("row", { name: /Oktober/ });
+    const cells = within(oktober).getAllByRole("cell");
+    expect(cells[1]).toHaveTextContent("3");
+    expect(cells[5]).toHaveTextContent("2");
+  });
+
   it("marks invoiced months with a check and the client and hours as a title", async () => {
     const db = getDb();
     const clientId = seedClient("Kund A");

@@ -2,6 +2,16 @@ import { describe, expect, it } from "vitest";
 import { invoicedMonths, summarizeYear, vabDaysByMonth, type SummaryEntry } from "@/lib/summary";
 
 describe("summarizeYear", () => {
+  it("counts a part-time VAB day as one VAB day and its work hours as work", () => {
+    const summary = summarizeYear(2026, [
+      { date: "2026-10-29", type: "vab", hours: 5 },
+      { date: "2026-10-29", type: "work", hours: 3 },
+    ]);
+
+    expect(summary.months[9]).toMatchObject({ vab: 1, workHours: 3 });
+    expect(summary.totals).toMatchObject({ vab: 1, workHours: 3 });
+  });
+
   it("returns 12 months even with no entries, all zero", () => {
     const summary = summarizeYear(2026, []);
     expect(summary.year).toBe(2026);
@@ -66,6 +76,17 @@ describe("summarizeYear", () => {
 });
 
 describe("vabDaysByMonth", () => {
+  it("lists a part-time VAB day once with its VAB hours, ignoring the work row", () => {
+    const entries: SummaryEntry[] = [
+      { date: "2026-10-29", type: "vab", hours: 5, note: "Joar" },
+      { date: "2026-10-29", type: "work", hours: 3, note: null },
+    ];
+
+    expect(vabDaysByMonth(2026, entries)).toEqual([
+      { month: 10, days: [{ date: "2026-10-29", note: "Joar", hours: 5 }] },
+    ]);
+  });
+
   it("groups the year's vab days by month, each month and its days sorted", () => {
     const entries: SummaryEntry[] = [
       { date: "2026-03-11", type: "vab", hours: null, note: null },
@@ -76,12 +97,12 @@ describe("vabDaysByMonth", () => {
     ];
 
     expect(vabDaysByMonth(2026, entries)).toEqual([
-      { month: 1, days: [{ date: "2026-01-05", note: "Stina" }] },
+      { month: 1, days: [{ date: "2026-01-05", note: "Stina", hours: null }] },
       {
         month: 3,
         days: [
-          { date: "2026-03-10", note: "Otto" },
-          { date: "2026-03-11", note: null },
+          { date: "2026-03-10", note: "Otto", hours: null },
+          { date: "2026-03-11", note: null, hours: null },
         ],
       },
     ]);

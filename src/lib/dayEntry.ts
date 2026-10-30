@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { DayEntryValues } from "@/db/dayEntries";
 import { DAY_TYPES, type DayType } from "@/db/schema";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -32,43 +33,58 @@ const clientIdField = z.preprocess(
   z.coerce.number().int().positive().nullable(),
 );
 
+const workPartSchema = z.object({
+  hours: hoursField,
+  note: noteField.optional(),
+  clientId: clientIdField.optional(),
+});
+
 export const dayInputSchema = z.object({
   date: z.string().regex(DATE_RE, "Ogiltigt datum"),
   type: z.enum(DAY_TYPES),
   hours: hoursField,
   note: noteField.optional(),
   clientId: clientIdField.optional(),
+  // Part-time VAB ("VAB deltid"): the work done on the rest of a VAB day.
+  work: workPartSchema.optional(),
 });
 
 export type DayInput = z.input<typeof dayInputSchema>;
 
-export type ParsedDay =
-  | { op: "delete"; date: string }
-  | {
-      op: "upsert";
-      date: string;
-      type: DayType;
-      hours: number | null;
-      note: string | null;
-      clientId: number | null;
-    };
+// Every row the date should hold; an empty list clears the date.
+export type ParsedDay = { date: string; entries: DayEntryValues[] };
 
-export function parseDay(input: unknown): ParsedDay {
-  const { date, type, hours, note, clientId } = dayInputSchema.parse(input);
-  // A work day with no hours is the empty default state: remove the row.
-  if (type === "work" && hours == null) {
-    return { op: "delete", date };
-  }
+type EntryFields = {
+  type: DayType;
+  hours: number | null;
+  note?: string | null;
+  clientId?: number | null;
+};
+
+function toEntry(
+  date: string,
+  { type, hours, note, clientId }: EntryFields,
+): DayEntryValues | null {
+  // A work day with no hours is the empty default state: no row.
+  if (type === "work" && hours == null) return null;
   if (type === "work" && clientId == null) {
     throw new Error("Kund krävs för arbetsdagar");
   }
   // Hours belong to a client only on work days; other types never carry one.
   return {
-    op: "upsert",
     date,
     type,
     hours,
     note: note ?? null,
     clientId: type === "work" ? clientId ?? null : null,
   };
+}
+
+export function parseDay(input: unknown): ParsedDay {
+  const { date, work, ...day } = dayInputSchema.parse(input);
+  if (work && day.type !== "vab") {
+    throw new Error("Endast VAB kan kombineras med arbete");
+  }
+  const entries = [toEntry(date, day), work ? toEntry(date, { ...work, type: "work" }) : null];
+  return { date, entries: entries.filter((entry) => entry !== null) };
 }

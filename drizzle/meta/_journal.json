@@ -64,6 +64,13 @@
       "when": 1793032042363,
       "tag": "0008_clients_show_weekends",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1793364030378,
+      "tag": "0009_day_entries_date_type_key",
+      "breakpoints": true
     }
   ]
 }

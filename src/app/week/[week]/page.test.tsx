@@ -199,4 +199,31 @@ describe("WeekPage", () => {
     expect(screen.getByLabelText("Timmar 2026-10-01")).toBeEnabled();
     expect(screen.getAllByText("Fakturerad")).toHaveLength(3);
   });
+
+  it("renders a part-time VAB day as a VAB row and a work row, totalling only the work", async () => {
+    const db = getDb();
+    const client = upsertClient(db, {
+      name: "Standard",
+      hourlyRate: 1000,
+      bokioCustomerId: "c1",
+      invoiceItemName: "Programmering",
+    });
+    db.insert(dayEntries)
+      .values([
+        { date: "2026-10-29", type: "vab", hours: 5, note: "Joar", updatedAt: "t" },
+        { date: "2026-10-29", type: "work", hours: 3, clientId: client.id, updatedAt: "t" },
+      ])
+      .run();
+
+    render(await renderWeek("2026-W44"));
+
+    expect(screen.getByLabelText("Typ 2026-10-29")).toHaveValue("vab");
+    expect(screen.getByLabelText("Timmar 2026-10-29")).toHaveValue("5");
+    expect(screen.getByLabelText("Kommentar 2026-10-29")).toHaveValue("Joar");
+    expect(screen.getByLabelText("Timmar arbete 2026-10-29")).toHaveValue("3");
+    expect(screen.getAllByText("2026-10-29")).toHaveLength(1);
+    const total = screen.getByText("Summa arbetstimmar").closest("tr") as HTMLElement;
+    expect(total).toHaveTextContent("3");
+  });
 });
+

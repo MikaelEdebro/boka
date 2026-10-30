@@ -205,3 +205,62 @@ describe("0008 clients show_weekends", () => {
     db.close();
   });
 });
+
+describe("0009 day_entries keyed by (date, type)", () => {
+  function migrateTo0008() {
+    const db = new Database(":memory:");
+    for (const prefix of ["0000", "0001", "0002", "0003", "0004", "0005", "0006", "0007", "0008"]) {
+      db.exec(migrationSql(prefix));
+    }
+    db.prepare(
+      `INSERT INTO clients (name, hourly_rate, bokio_customer_id, invoice_item_name, is_default, created_at)
+       VALUES ('Standard', 1000, 'c1', 'Programmering', 1, '2026-01-01T00:00:00.000Z')`,
+    ).run();
+    db.prepare(
+      `INSERT INTO day_entries (date, type, hours, note, client_id, updated_at)
+       VALUES ('2026-10-28', 'work', 8, 'möte', 1, 't1'),
+              ('2026-10-29', 'vab', NULL, 'Joar', NULL, 't2')`,
+    ).run();
+    return db;
+  }
+
+  it("keeps existing rows", () => {
+    const db = migrateTo0008();
+
+    db.exec(migrationSql("0009"));
+
+    expect(
+      db
+        .prepare(
+          `SELECT date, type, hours, note, client_id as clientId, updated_at as updatedAt
+           FROM day_entries ORDER BY date`,
+        )
+        .all(),
+    ).toEqual([
+      { date: "2026-10-28", type: "work", hours: 8, note: "möte", clientId: 1, updatedAt: "t1" },
+      { date: "2026-10-29", type: "vab", hours: null, note: "Joar", clientId: null, updatedAt: "t2" },
+    ]);
+    db.close();
+  });
+
+  it("allows a second row with another type on the same date, but not the same type", () => {
+    const db = migrateTo0008();
+    db.exec(migrationSql("0009"));
+
+    db.prepare(
+      `INSERT INTO day_entries (date, type, hours, client_id, updated_at)
+       VALUES ('2026-10-29', 'work', 3, 1, 't3')`,
+    ).run();
+    expect(() =>
+      db
+        .prepare(
+          `INSERT INTO day_entries (date, type, hours, updated_at) VALUES ('2026-10-29', 'vab', 5, 't4')`,
+        )
+        .run(),
+    ).toThrow();
+    expect(db.prepare(`SELECT count(*) as n FROM day_entries WHERE date = '2026-10-29'`).get()).toEqual({
+      n: 2,
+    });
+    db.close();
+  });
+});

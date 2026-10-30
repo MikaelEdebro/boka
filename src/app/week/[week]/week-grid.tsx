@@ -1,7 +1,14 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
-import { useRef, useState, useTransition, type FocusEvent, type MouseEvent } from "react";
+import {
+  Fragment,
+  useRef,
+  useState,
+  useTransition,
+  type FocusEvent,
+  type MouseEvent,
+} from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { DAY_TYPES, type DayType } from "@/db/schema";
@@ -15,33 +22,50 @@ import {
 } from "@/lib/weekPresets";
 import { applyWeekPreset, saveDay } from "./actions";
 
-type RowState = { type: DayType; hours: string; note: string; clientId: string };
+type WorkState = { hours: string; note: string; clientId: string };
+type RowState = WorkState & { type: DayType; work: WorkState | null };
 type SaveStatus = "idle" | "saving";
+
+// "VAB deltid" is a choice in the type dropdown, not a stored day type: it
+// splits the date into a VAB row and a work row.
+const VAB_PART_TIME = "vab_part";
+const VAB_PART_TIME_LABEL = "VAB deltid";
 
 export type ClientOption = { id: number; name: string };
 
-export type WeekGridRow = {
+export type WorkPart = { hours: number | null; note: string | null; clientId: number | null };
+
+export type WeekGridRow = WorkPart & {
   date: string;
   type: DayType;
-  hours: number | null;
-  note: string | null;
-  clientId: number | null;
+  // The work row of a part-time VAB day.
+  work?: WorkPart | null;
   locked: boolean;
 };
 
-function toState(row: WeekGridRow): RowState {
+function toWorkState({ hours, note, clientId }: WorkPart): WorkState {
   return {
-    type: row.type,
-    hours: row.hours == null ? "" : String(row.hours),
-    note: row.note ?? "",
-    clientId: row.clientId == null ? "" : String(row.clientId),
+    hours: hours == null ? "" : String(hours),
+    note: note ?? "",
+    clientId: clientId == null ? "" : String(clientId),
   };
 }
 
-function workHours(state: RowState): number {
-  if (state.type !== "work") return 0;
-  const parsed = Number(normalizeHours(state.hours));
+function toState(row: WeekGridRow): RowState {
+  return { ...toWorkState(row), type: row.type, work: row.work ? toWorkState(row.work) : null };
+}
+
+function parsedHours(hours: string): number {
+  const parsed = Number(normalizeHours(hours));
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+// Every [clientId, hours] the date bills: its own hours on a work day, the
+// work row's hours on a part-time VAB day.
+function billedHours(state: RowState): [string, number][] {
+  if (state.type === "work") return [[state.clientId, parsedHours(state.hours)]];
+  if (state.work) return [[state.work.clientId, parsedHours(state.work.hours)]];
+  return [];
 }
 
 function inputToState(input: DayInput, defaultClientId: string): RowState {
@@ -51,7 +75,17 @@ function inputToState(input: DayInput, defaultClientId: string): RowState {
     hours: hours === "" || hours == null ? "" : String(hours),
     note: "",
     clientId: clientId == null ? defaultClientId : String(clientId),
+    work: null,
   };
+}
+
+function toDayInput(date: string, { type, hours, note, clientId, work }: RowState): DayInput {
+  const day = { date, type, hours, note, clientId };
+  return work ? { ...day, work } : day;
+}
+
+function workErrorKey(date: string): string {
+  return `${date}:work`;
 }
 
 // Browsers clear a focus-time selection on the mouseup that follows a click,
@@ -96,7 +130,7 @@ export function WeekGrid({
   const [statuses, setStatuses] = useState<Record<string, SaveStatus>>({});
   const [hoursErrors, setHoursErrors] = useState<Record<string, string>>({});
   const [pending, startTransition] = useTransition();
-  const hourInputs = useRef<(HTMLInputElement | null)[]>([]);
+  const hourInputs = useRef<Record<string, HTMLInputElement | null>>({});
   const selectOnFocus = useSelectOnFocus();
 
   // The Kund column only earns its space once there is a choice to make.
@@ -104,23 +138,30 @@ export function WeekGrid({
   const defaultClientValue = defaultClientId == null ? "" : String(defaultClientId);
 
   const allLocked = rows.every((row) => row.locked);
-  const firstOpenIndex = rows.findIndex((row) => !row.locked);
+  const firstOpenDate = rows.find((row) => !row.locked)?.date;
 
-  function focusNextHours(index: number, current: HTMLInputElement) {
-    const next = hourInputs.current.slice(index + 1).find((input) => input && !input.disabled);
+  // Hours inputs in render order: each date's own, then its work row's.
+  const hourInputKeys = rows.flatMap((row) =>
+    states[row.date].work ? [row.date, workErrorKey(row.date)] : [row.date],
+  );
+
+  function focusNextHours(key: string, current: HTMLInputElement) {
+    const next = hourInputKeys
+      .slice(hourInputKeys.indexOf(key) + 1)
+      .map((nextKey) => hourInputs.current[nextKey])
+      .find((input) => input && !input.disabled);
     // On the last input, blur to commit the value through the onBlur handler.
     if (next) next.focus();
     else current.blur();
   }
 
-  const total = rows.reduce((sum, row) => sum + workHours(states[row.date]), 0);
+  const billed = rows.flatMap((row) => billedHours(states[row.date]));
+  const total = billed.reduce((sum, [, hours]) => sum + hours, 0);
 
   const hoursByClient = new Map<string, number>();
-  for (const row of rows) {
-    const state = states[row.date];
-    const hours = workHours(state);
+  for (const [clientId, hours] of billed) {
     if (hours <= 0) continue;
-    hoursByClient.set(state.clientId, (hoursByClient.get(state.clientId) ?? 0) + hours);
+    hoursByClient.set(clientId, (hoursByClient.get(clientId) ?? 0) + hours);
   }
   const clientNameById = new Map(clients.map((client) => [String(client.id), client.name]));
   const breakdown = [...hoursByClient.entries()];
@@ -150,24 +191,23 @@ export function WeekGrid({
   }
 
   function persist(date: string, next: RowState) {
-    const error = hoursError(next.hours);
+    const errors = {
+      [date]: hoursError(next.hours),
+      [workErrorKey(date)]: next.work ? hoursError(next.work.hours) : null,
+    };
     setHoursErrors((prev) => {
-      const errors = { ...prev };
-      if (error) errors[date] = error;
-      else delete errors[date];
-      return errors;
+      const nextErrors = { ...prev };
+      for (const [key, error] of Object.entries(errors)) {
+        if (error) nextErrors[key] = error;
+        else delete nextErrors[key];
+      }
+      return nextErrors;
     });
-    if (error) return;
+    if (Object.values(errors).some(Boolean)) return;
     setStatuses((prev) => ({ ...prev, [date]: "saving" }));
     startTransition(async () => {
       try {
-        await saveDay({
-          date,
-          type: next.type,
-          hours: next.hours,
-          note: next.note,
-          clientId: next.clientId,
-        });
+        await saveDay(toDayInput(date, next));
       } catch {
         toast.error("Kunde inte spara dagen");
       } finally {
@@ -182,9 +222,153 @@ export function WeekGrid({
     persist(date, next);
   }
 
+  function updateWork(date: string, patch: Partial<WorkState>) {
+    const { work } = states[date];
+    if (work) update(date, { work: { ...work, ...patch } });
+  }
+
+  // Picking VAB deltid keeps any VAB hours and note, and moves a work day's
+  // hours to the work row. VAB keeps a split date split; any other type
+  // collapses it to one row.
+  function changeType(date: string, value: string) {
+    const state = states[date];
+    if (value === VAB_PART_TIME) {
+      if (state.work) return;
+      const wasWork = state.type === "work";
+      update(date, {
+        type: "vab",
+        hours: state.type === "vab" ? state.hours : "",
+        note: state.type === "vab" ? state.note : "",
+        work: {
+          hours: wasWork ? state.hours : "",
+          note: wasWork ? state.note : "",
+          clientId: wasWork && state.clientId ? state.clientId : defaultClientValue,
+        },
+      });
+      return;
+    }
+    if (value === "vab" && state.work) return;
+    update(date, { type: value as DayType, work: null });
+  }
+
   // Local-only edit while typing; the value is persisted on blur via update().
   function editField(date: string, patch: Partial<RowState>) {
     setStates((prev) => ({ ...prev, [date]: { ...prev[date], ...patch } }));
+  }
+
+  function editWorkField(date: string, patch: Partial<WorkState>) {
+    setStates((prev) => {
+      const { work } = prev[date];
+      return work ? { ...prev, [date]: { ...prev[date], work: { ...work, ...patch } } } : prev;
+    });
+  }
+
+  function renderClientSelect(
+    label: string,
+    value: string,
+    locked: boolean,
+    onChange: (clientId: string) => void,
+  ) {
+    return (
+      <select
+        aria-label={label}
+        value={value}
+        disabled={locked}
+        tabIndex={-1}
+        onChange={(event) => onChange(event.target.value)}
+        className="w-36 rounded-md border bg-transparent px-2 py-1 disabled:opacity-50"
+      >
+        {clients.map((client) => (
+          <option key={client.id} value={String(client.id)}>
+            {client.name}
+          </option>
+        ))}
+      </select>
+    );
+  }
+
+  function renderHoursInput({
+    inputKey,
+    label,
+    value,
+    locked,
+    onEdit,
+    onCommit,
+  }: {
+    inputKey: string;
+    label: string;
+    value: string;
+    locked: boolean;
+    onEdit: (hours: string) => void;
+    onCommit: (hours: string) => void;
+  }) {
+    const errorMessage = hoursErrors[inputKey];
+    const errorId = `hours-error-${inputKey}`;
+    return (
+      <>
+        <input
+          ref={(node) => {
+            hourInputs.current[inputKey] = node;
+          }}
+          aria-label={label}
+          type="text"
+          inputMode="decimal"
+          pattern="[0-9]*([.,][0-9]+)?"
+          aria-invalid={errorMessage ? true : undefined}
+          aria-describedby={errorMessage ? errorId : undefined}
+          autoFocus={inputKey === firstOpenDate}
+          value={value}
+          disabled={locked}
+          onChange={(event) => onEdit(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              focusNextHours(inputKey, event.currentTarget);
+            }
+          }}
+          onBlur={(event) => onCommit(normalizeHours(event.target.value))}
+          {...selectOnFocus}
+          className="w-20 rounded-md border bg-transparent px-2 py-1 tabular-nums disabled:opacity-50 aria-invalid:border-destructive"
+        />
+        {errorMessage && (
+          <p id={errorId} role="alert" className="mt-1 text-xs text-destructive">
+            {errorMessage}
+          </p>
+        )}
+      </>
+    );
+  }
+
+  function renderNoteInput({
+    label,
+    value,
+    isVab,
+    locked,
+    onEdit,
+    onCommit,
+  }: {
+    label: string;
+    value: string;
+    isVab: boolean;
+    locked: boolean;
+    onEdit: (note: string) => void;
+    onCommit: (note: string) => void;
+  }) {
+    return (
+      <input
+        aria-label={label}
+        type="text"
+        tabIndex={-1}
+        placeholder={isVab ? "Barn" : "Kommentar"}
+        list={isVab ? VAB_NOTES_LIST_ID : undefined}
+        value={value}
+        disabled={locked}
+        onChange={(event) => onEdit(event.target.value)}
+        onBlur={(event) => onCommit(event.target.value)}
+        {...selectOnFocus}
+        className="w-full rounded-md border bg-transparent px-2 py-1 disabled:opacity-50"
+      />
+    );
   }
 
   return (
@@ -232,114 +416,110 @@ export function WeekGrid({
           </tr>
         </thead>
         <tbody>
-          {rows.map((row, index) => {
+          {rows.map((row) => {
             const state = states[row.date];
             const status = statuses[row.date] ?? "idle";
             const isVab = state.type === "vab";
-            const hoursErrorMessage = hoursErrors[row.date];
-            const hoursErrorId = `hours-error-${row.date}`;
             return (
-              <tr key={row.date} className="border-b">
-                <td className="py-2">{weekdayLabel(row.date)}</td>
-                <td className="py-2">{row.date}</td>
-                <td className="py-2">
-                  <select
-                    aria-label={`Typ ${row.date}`}
-                    value={state.type}
-                    disabled={row.locked}
-                    tabIndex={-1}
-                    onChange={(event) =>
-                      update(row.date, { type: event.target.value as DayType })
-                    }
-                    className="rounded-md border bg-transparent px-2 py-1 disabled:opacity-50"
-                  >
-                    {DAY_TYPES.map((type) => (
-                      <option key={type} value={type}>
-                        {DAY_TYPE_LABELS[type]}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-                {showClients && (
+              <Fragment key={row.date}>
+                <tr className={state.work ? undefined : "border-b"}>
+                  <td className="py-2">{weekdayLabel(row.date)}</td>
+                  <td className="py-2">{row.date}</td>
                   <td className="py-2">
-                    {state.type === "work" && (
-                      <select
-                        aria-label={`Kund ${row.date}`}
-                        value={state.clientId}
-                        disabled={row.locked}
-                        tabIndex={-1}
-                        onChange={(event) =>
-                          update(row.date, { clientId: event.target.value })
-                        }
-                        className="w-36 rounded-md border bg-transparent px-2 py-1 disabled:opacity-50"
-                      >
-                        {clients.map((client) => (
-                          <option key={client.id} value={String(client.id)}>
-                            {client.name}
-                          </option>
-                        ))}
-                      </select>
+                    <select
+                      aria-label={`Typ ${row.date}`}
+                      value={state.type}
+                      disabled={row.locked}
+                      tabIndex={-1}
+                      onChange={(event) => changeType(row.date, event.target.value)}
+                      className="rounded-md border bg-transparent px-2 py-1 disabled:opacity-50"
+                    >
+                      {DAY_TYPES.map((type) => (
+                        <Fragment key={type}>
+                          <option value={type}>{DAY_TYPE_LABELS[type]}</option>
+                          {type === "vab" && (
+                            <option value={VAB_PART_TIME}>{VAB_PART_TIME_LABEL}</option>
+                          )}
+                        </Fragment>
+                      ))}
+                    </select>
+                  </td>
+                  {showClients && (
+                    <td className="py-2">
+                      {state.type === "work" &&
+                        renderClientSelect(`Kund ${row.date}`, state.clientId, row.locked, (clientId) =>
+                          update(row.date, { clientId }),
+                        )}
+                    </td>
+                  )}
+                  <td className="py-2">
+                    {renderHoursInput({
+                      inputKey: row.date,
+                      label: `Timmar ${row.date}`,
+                      value: state.hours,
+                      locked: row.locked,
+                      onEdit: (hours) => editField(row.date, { hours }),
+                      onCommit: (hours) => update(row.date, { hours }),
+                    })}
+                  </td>
+                  <td className="py-2">
+                    {renderNoteInput({
+                      label: `Kommentar ${row.date}`,
+                      value: state.note,
+                      isVab,
+                      locked: row.locked,
+                      onEdit: (note) => editField(row.date, { note }),
+                      onCommit: (note) => update(row.date, { note }),
+                    })}
+                  </td>
+                  <td
+                    className="py-2 whitespace-nowrap text-muted-foreground"
+                    aria-live="polite"
+                  >
+                    {row.locked && <span className="text-xs text-muted-foreground">Fakturerad</span>}
+                    {!row.locked && status === "saving" && (
+                      <Loader2 className="size-4 animate-spin" aria-label="Sparar" />
                     )}
                   </td>
+                </tr>
+                {state.work && (
+                  <tr className="border-b">
+                    <td className="py-2" colSpan={2}></td>
+                    <td className="py-2 pl-3">{DAY_TYPE_LABELS.work}</td>
+                    {showClients && (
+                      <td className="py-2">
+                        {renderClientSelect(
+                          `Kund arbete ${row.date}`,
+                          state.work.clientId,
+                          row.locked,
+                          (clientId) => updateWork(row.date, { clientId }),
+                        )}
+                      </td>
+                    )}
+                    <td className="py-2">
+                      {renderHoursInput({
+                        inputKey: workErrorKey(row.date),
+                        label: `Timmar arbete ${row.date}`,
+                        value: state.work.hours,
+                        locked: row.locked,
+                        onEdit: (hours) => editWorkField(row.date, { hours }),
+                        onCommit: (hours) => updateWork(row.date, { hours }),
+                      })}
+                    </td>
+                    <td className="py-2">
+                      {renderNoteInput({
+                        label: `Kommentar arbete ${row.date}`,
+                        value: state.work.note,
+                        isVab: false,
+                        locked: row.locked,
+                        onEdit: (note) => editWorkField(row.date, { note }),
+                        onCommit: (note) => updateWork(row.date, { note }),
+                      })}
+                    </td>
+                    <td className="py-2"></td>
+                  </tr>
                 )}
-                <td className="py-2">
-                  <input
-                    ref={(node) => {
-                      hourInputs.current[index] = node;
-                    }}
-                    aria-label={`Timmar ${row.date}`}
-                    type="text"
-                    inputMode="decimal"
-                    pattern="[0-9]*([.,][0-9]+)?"
-                    aria-invalid={hoursErrorMessage ? true : undefined}
-                    aria-describedby={hoursErrorMessage ? hoursErrorId : undefined}
-                    autoFocus={index === firstOpenIndex}
-                    value={state.hours}
-                    disabled={row.locked}
-                    onChange={(event) => editField(row.date, { hours: event.target.value })}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        event.preventDefault();
-                        focusNextHours(index, event.currentTarget);
-                      }
-                    }}
-                    onBlur={(event) =>
-                      update(row.date, { hours: normalizeHours(event.target.value) })
-                    }
-                    {...selectOnFocus}
-                    className="w-20 rounded-md border bg-transparent px-2 py-1 tabular-nums disabled:opacity-50 aria-invalid:border-destructive"
-                  />
-                  {hoursErrorMessage && (
-                    <p id={hoursErrorId} role="alert" className="mt-1 text-xs text-destructive">
-                      {hoursErrorMessage}
-                    </p>
-                  )}
-                </td>
-                <td className="py-2">
-                  <input
-                    aria-label={`Kommentar ${row.date}`}
-                    type="text"
-                    tabIndex={-1}
-                    placeholder={isVab ? "Barn" : "Kommentar"}
-                    list={isVab ? VAB_NOTES_LIST_ID : undefined}
-                    value={state.note}
-                    disabled={row.locked}
-                    onChange={(event) => editField(row.date, { note: event.target.value })}
-                    onBlur={(event) => update(row.date, { note: event.target.value })}
-                    {...selectOnFocus}
-                    className="w-full rounded-md border bg-transparent px-2 py-1 disabled:opacity-50"
-                  />
-                </td>
-                <td
-                  className="py-2 whitespace-nowrap text-muted-foreground"
-                  aria-live="polite"
-                >
-                  {row.locked && <span className="text-xs text-muted-foreground">Fakturerad</span>}
-                  {!row.locked && status === "saving" && (
-                    <Loader2 className="size-4 animate-spin" aria-label="Sparar" />
-                  )}
-                </td>
-              </tr>
+              </Fragment>
             );
           })}
         </tbody>

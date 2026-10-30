@@ -1,11 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getDb, type Db } from "@/db/client";
+import { getDb } from "@/db/client";
 import { getDefaultClient, listClients } from "@/db/clients";
-import { deleteDayEntry, upsertDayEntry } from "@/db/dayEntries";
+import { replaceDayEntries } from "@/db/dayEntries";
 import { listInvoices } from "@/db/invoices";
-import { parseDay, type DayInput, type ParsedDay } from "@/lib/dayEntry";
+import { parseDay, type DayInput } from "@/lib/dayEntry";
 import { INVOICED_MONTH_ERROR, invoicedMonths, monthKey } from "@/lib/invoicing";
 import {
   formatDate,
@@ -21,14 +21,6 @@ function isLocked(locked: ReadonlySet<string>, date: string): boolean {
   return locked.has(monthKey(date));
 }
 
-function writeDay(db: Db, parsed: ParsedDay): void {
-  if (parsed.op === "delete") {
-    deleteDayEntry(db, parsed.date);
-  } else {
-    upsertDayEntry(db, parsed);
-  }
-}
-
 export async function saveDay(input: DayInput): Promise<void> {
   const parsed = parseDay(input);
   const db = getDb();
@@ -37,7 +29,7 @@ export async function saveDay(input: DayInput): Promise<void> {
     throw new Error(INVOICED_MONTH_ERROR);
   }
 
-  writeDay(db, parsed);
+  replaceDayEntries(db, parsed.date, parsed.entries);
 
   const week = weekForDate(parsed.date);
   revalidatePath(`/week/${formatWeek(week)}`);
@@ -71,7 +63,8 @@ export async function applyWeekPreset(
 
   const writeAll = db.$client.transaction(() => {
     for (const entry of entries) {
-      writeDay(db, parseDay(entry));
+      const { date, entries } = parseDay(entry);
+      replaceDayEntries(db, date, entries);
     }
   });
   writeAll();

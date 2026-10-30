@@ -19,8 +19,8 @@ export type WeekPreset = keyof typeof WEEK_PRESET_LABELS;
 
 const WORK_HOURS = 8;
 
-// An empty weekday in this app is a work day with no hours (parseDay turns it
-// into a delete), so clearing a day means exactly that.
+// An empty weekday in this app is a work day with no hours (parseDay gives it
+// no rows, so every row of the date is removed), so clearing a day means exactly that.
 function cleared(date: string): DayInput {
   return { date, type: "work", hours: "" };
 }

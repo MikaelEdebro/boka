@@ -68,7 +68,7 @@ export function summarizeYear(year: number, entries: SummaryEntry[]): YearSummar
   return { year, months, totals };
 }
 
-export type VabDay = { date: string; note: string | null };
+export type VabDay = { date: string; note: string | null; hours: number | null };
 export type VabMonth = { month: number; days: VabDay[] };
 
 export function vabDaysByMonth(year: number, entries: SummaryEntry[]): VabMonth[] {
@@ -79,7 +79,7 @@ export function vabDaysByMonth(year: number, entries: SummaryEntry[]): VabMonth[
     if (entry.date.slice(0, 4) !== String(year)) continue;
     const month = Number(entry.date.slice(5, 7));
     const days = byMonth.get(month) ?? [];
-    days.push({ date: entry.date, note: entry.note ?? null });
+    days.push({ date: entry.date, note: entry.note ?? null, hours: entry.hours });
     byMonth.set(month, days);
   }
 

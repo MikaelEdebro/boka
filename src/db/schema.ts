@@ -1,4 +1,4 @@
-import { integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { integer, primaryKey, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 export const DAY_TYPES = ["work", "vacation", "leave", "vab", "sick", "parental", "holiday"] as const;
 export type DayType = (typeof DAY_TYPES)[number];
@@ -6,14 +6,18 @@ export type DayType = (typeof DAY_TYPES)[number];
 export const THEMES = ["light", "dark", "system"] as const;
 export type Theme = (typeof THEMES)[number];
 
-export const dayEntries = sqliteTable("day_entries", {
-  date: text("date").primaryKey(),
-  type: text("type", { enum: DAY_TYPES }).notNull(),
-  hours: real("hours"),
-  note: text("note"),
-  clientId: integer("client_id").references(() => clients.id),
-  updatedAt: text("updated_at").notNull(),
-});
+export const dayEntries = sqliteTable(
+  "day_entries",
+  {
+    date: text("date").notNull(),
+    type: text("type", { enum: DAY_TYPES }).notNull(),
+    hours: real("hours"),
+    note: text("note"),
+    clientId: integer("client_id").references(() => clients.id),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.date, table.type] })],
+);
 
 export const settings = sqliteTable("settings", {
   id: integer("id").primaryKey(),

@@ -587,4 +587,181 @@ describe("WeekGrid", () => {
     const tfoot = within(container.querySelector("tfoot") as HTMLElement);
     expect(tfoot.queryByText("Acme")).not.toBeInTheDocument();
   });
+
+  describe("VAB deltid", () => {
+    const twoClients = [
+      { id: 1, name: "Acme" },
+      { id: 2, name: "Globex" },
+    ];
+    const partTimeRow: WeekGridRow = {
+      date: "2026-10-20",
+      type: "vab",
+      hours: 5,
+      note: "Joar",
+      clientId: null,
+      work: { hours: 3, note: null, clientId: 2 },
+      locked: false,
+    };
+
+    it("offers VAB deltid in the type dropdown", () => {
+      renderGrid();
+
+      const options = within(screen.getByLabelText("Typ 2026-10-20")).getAllByRole("option");
+      expect(options.map((option) => option.textContent)).toContain("VAB deltid");
+    });
+
+    it("splits the date into a VAB row and an Arbete row and saves both", () => {
+      renderGrid({ clients: twoClients });
+
+      fireEvent.change(screen.getByLabelText("Typ 2026-10-20"), { target: { value: "vab_part" } });
+
+      expect(screen.getByLabelText("Typ 2026-10-20")).toHaveValue("vab");
+      expect(screen.getByLabelText("Timmar 2026-10-20")).toHaveValue("");
+      expect(screen.getByLabelText("Kommentar 2026-10-20")).toHaveAttribute("list", "vab-notes");
+      expect(screen.getByLabelText("Timmar arbete 2026-10-20")).toHaveValue("");
+      expect(screen.getByLabelText("Kund arbete 2026-10-20")).toHaveValue("1");
+      const workRow = screen.getByLabelText("Timmar arbete 2026-10-20").closest("tr") as HTMLElement;
+      expect(within(workRow).getByText("Arbete")).toBeInTheDocument();
+      expect(saveDay).toHaveBeenLastCalledWith({
+        date: "2026-10-20",
+        type: "vab",
+        hours: "",
+        note: "",
+        clientId: "1",
+        work: { hours: "", note: "", clientId: "1" },
+      });
+    });
+
+    it("saves the VAB hours, note and work hours together and counts only the work hours", () => {
+      renderGrid();
+      fireEvent.change(screen.getByLabelText("Typ 2026-10-20"), { target: { value: "vab_part" } });
+
+      const vabHours = screen.getByLabelText("Timmar 2026-10-20");
+      fireEvent.change(vabHours, { target: { value: "5" } });
+      fireEvent.blur(vabHours);
+      const note = screen.getByLabelText("Kommentar 2026-10-20");
+      fireEvent.change(note, { target: { value: "Joar" } });
+      fireEvent.blur(note);
+      const workHours = screen.getByLabelText("Timmar arbete 2026-10-20");
+      fireEvent.change(workHours, { target: { value: "3" } });
+      fireEvent.blur(workHours);
+
+      expect(saveDay).toHaveBeenLastCalledWith({
+        date: "2026-10-20",
+        type: "vab",
+        hours: "5",
+        note: "Joar",
+        clientId: "1",
+        work: { hours: "3", note: "", clientId: "1" },
+      });
+      // Monday's 8 h plus the 3 h of work; the 5 VAB hours are not work.
+      expect(screen.getByText("11")).toBeInTheDocument();
+    });
+
+    it("moves a work day's hours into the Arbete row", () => {
+      renderGrid();
+
+      fireEvent.change(screen.getByLabelText("Typ 2026-10-19"), { target: { value: "vab_part" } });
+
+      expect(screen.getByLabelText("Timmar 2026-10-19")).toHaveValue("");
+      expect(screen.getByLabelText("Timmar arbete 2026-10-19")).toHaveValue("8");
+    });
+
+    it("renders a stored part-time VAB day as two rows with the client breakdown", () => {
+      const { container } = renderGrid({ clients: twoClients, rows: [rows[0], partTimeRow] });
+
+      expect(screen.getByLabelText("Typ 2026-10-20")).toHaveValue("vab");
+      expect(screen.getByLabelText("Timmar 2026-10-20")).toHaveValue("5");
+      expect(screen.getByLabelText("Kommentar 2026-10-20")).toHaveValue("Joar");
+      expect(screen.getByLabelText("Timmar arbete 2026-10-20")).toHaveValue("3");
+      expect(screen.getByLabelText("Kund arbete 2026-10-20")).toHaveValue("2");
+
+      const tfoot = within(container.querySelector("tfoot") as HTMLElement);
+      expect(tfoot.getByText("11")).toBeInTheDocument();
+      expect(tfoot.getByText("Globex")).toBeInTheDocument();
+      expect(tfoot.getByText("3")).toBeInTheDocument();
+    });
+
+    it("saves the chosen client of the Arbete row", () => {
+      renderGrid({ clients: twoClients, rows: [partTimeRow] });
+
+      fireEvent.change(screen.getByLabelText("Kund arbete 2026-10-20"), { target: { value: "1" } });
+
+      expect(saveDay).toHaveBeenLastCalledWith(
+        expect.objectContaining({ work: { hours: "3", note: "", clientId: "1" } }),
+      );
+    });
+
+    it("collapses to one row when the VAB row changes to another type", () => {
+      renderGrid({ rows: [partTimeRow] });
+
+      fireEvent.change(screen.getByLabelText("Typ 2026-10-20"), { target: { value: "sick" } });
+
+      expect(screen.queryByLabelText("Timmar arbete 2026-10-20")).not.toBeInTheDocument();
+      expect(saveDay).toHaveBeenLastCalledWith({
+        date: "2026-10-20",
+        type: "sick",
+        hours: "5",
+        note: "Joar",
+        clientId: "",
+      });
+    });
+
+    it.each(["vab", "vab_part"])("stays split when the VAB row is set to %s", (value) => {
+      renderGrid({ rows: [partTimeRow] });
+
+      fireEvent.change(screen.getByLabelText("Typ 2026-10-20"), { target: { value } });
+
+      expect(screen.getByLabelText("Timmar arbete 2026-10-20")).toHaveValue("3");
+    });
+
+    it("shows an invalid work hours value inline without saving", () => {
+      renderGrid({ rows: [partTimeRow] });
+
+      const input = screen.getByLabelText("Timmar arbete 2026-10-20");
+      fireEvent.change(input, { target: { value: "abc" } });
+      fireEvent.blur(input);
+
+      expect(input).toHaveAttribute("aria-invalid", "true");
+      expect(screen.getByRole("alert")).toHaveTextContent("Timmar måste vara ett tal");
+      expect(saveDay).not.toHaveBeenCalled();
+    });
+
+    it("moves Enter from the VAB hours to the work hours", () => {
+      renderGrid({ rows: [partTimeRow, { ...rows[1], date: "2026-10-21" }] });
+
+      const vabHours = screen.getByLabelText("Timmar 2026-10-20");
+      vabHours.focus();
+      fireEvent.keyDown(vabHours, { key: "Enter" });
+      expect(screen.getByLabelText("Timmar arbete 2026-10-20")).toHaveFocus();
+
+      fireEvent.keyDown(screen.getByLabelText("Timmar arbete 2026-10-20"), { key: "Enter" });
+      expect(screen.getByLabelText("Timmar 2026-10-21")).toHaveFocus();
+    });
+
+    it("disables both rows when the month is invoiced", () => {
+      renderGrid({ clients: twoClients, rows: [rows[0], { ...partTimeRow, locked: true }] });
+
+      for (const label of [
+        "Typ 2026-10-20",
+        "Timmar 2026-10-20",
+        "Kommentar 2026-10-20",
+        "Timmar arbete 2026-10-20",
+        "Kund arbete 2026-10-20",
+        "Kommentar arbete 2026-10-20",
+      ]) {
+        expect(screen.getByLabelText(label)).toBeDisabled();
+      }
+    });
+
+    it("collapses to the preset's single row when a preset is applied", () => {
+      renderGrid({ rows: [rows[0], partTimeRow] });
+
+      fireEvent.click(screen.getByRole("button", { name: "VAB hela veckan" }));
+
+      expect(screen.queryByLabelText("Timmar arbete 2026-10-20")).not.toBeInTheDocument();
+      expect(screen.getByLabelText("Typ 2026-10-20")).toHaveValue("vab");
+    });
+  });
 });
+

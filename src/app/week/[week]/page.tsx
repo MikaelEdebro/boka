@@ -43,17 +43,24 @@ export default async function WeekPage({
     .from(dayEntries)
     .where(inArray(dayEntries.date, weekDates))
     .all();
-  const entries = new Map<string, DayEntry>(dbRows.map((row) => [row.date, row]));
+  const entriesByDate = new Map<string, DayEntry[]>();
+  for (const row of dbRows) {
+    entriesByDate.set(row.date, [...(entriesByDate.get(row.date) ?? []), row]);
+  }
 
   const clients = listClients(db);
   const defaultClientId = clients.find((client) => client.isDefault)?.id ?? null;
   const showWeekends = clients.some((client) => client.showWeekends);
-  const dates = visibleWeekDates(weekDates, showWeekends, new Set(entries.keys()));
+  const dates = visibleWeekDates(weekDates, showWeekends, new Set(entriesByDate.keys()));
 
   const invoiced = invoicedMonths(listInvoices(db));
 
   function rowValues(date: string): Omit<WeekGridRow, "locked"> {
-    const entry = entries.get(date);
+    const dayRows = entriesByDate.get(date) ?? [];
+    const vab = dayRows.find((entry) => entry.type === "vab");
+    const work = dayRows.find((entry) => entry.type === "work");
+    // A vab row next to a work row is a part-time VAB day ("VAB deltid").
+    const entry = vab ?? dayRows[0];
     if (entry) {
       return {
         date,
@@ -61,6 +68,7 @@ export default async function WeekPage({
         hours: entry.hours,
         note: entry.note,
         clientId: entry.clientId,
+        work: vab && work ? { hours: work.hours, note: work.note, clientId: work.clientId } : null,
       };
     }
     // Pre-fill weekday red days as holiday with 0 hours. Not persisted until

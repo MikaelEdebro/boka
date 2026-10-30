@@ -159,4 +159,24 @@ describe("applyWeekPreset", () => {
   it("rejects an invalid week param", async () => {
     await expect(applyWeekPreset("nope", "work", [])).rejects.toThrow(/[Oo]giltig/);
   });
+
+  it("replaces a part-time VAB day with a full-day VAB row on 'VAB hela veckan'", async () => {
+    upsertDayEntry(db, { date: "2026-10-21", type: "vab", hours: 5, note: "Joar", clientId: null });
+    upsertDayEntry(db, { date: "2026-10-21", type: "work", hours: 3, note: null, clientId: defaultClientId });
+
+    await applyWeekPreset("2026-W43", "vab", allDates("2026-W43"));
+
+    const rows = db.select().from(dayEntries).all().filter((row) => row.date === "2026-10-21");
+    expect(rows).toEqual([expect.objectContaining({ type: "vab", hours: null, note: null })]);
+  });
+
+  it("removes both rows of a part-time VAB day on clear", async () => {
+    upsertDayEntry(db, { date: "2026-10-21", type: "vab", hours: 5, note: "Joar", clientId: null });
+    upsertDayEntry(db, { date: "2026-10-21", type: "work", hours: 3, note: null, clientId: defaultClientId });
+
+    await applyWeekPreset("2026-W43", "clear", allDates("2026-W43"));
+
+    expect(db.select().from(dayEntries).all()).toEqual([]);
+  });
 });
+

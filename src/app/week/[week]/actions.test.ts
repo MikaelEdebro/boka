@@ -113,4 +113,98 @@ describe("saveDay", () => {
     await saveDay({ date: "2026-10-01", type: "work", hours: "8", clientId: String(clientId) });
     expect(db.select().from(dayEntries).all()).toHaveLength(1);
   });
+
+  describe("part-time VAB", () => {
+    function rows() {
+      return db
+        .select({
+          date: dayEntries.date,
+          type: dayEntries.type,
+          hours: dayEntries.hours,
+          note: dayEntries.note,
+          clientId: dayEntries.clientId,
+        })
+        .from(dayEntries)
+        .orderBy(dayEntries.type)
+        .all();
+    }
+
+    it("stores a vab row and a work row for the same date", async () => {
+      await saveDay({
+        date: "2026-10-29",
+        type: "vab",
+        hours: "5",
+        note: "Joar",
+        work: { hours: "3", clientId: String(clientId) },
+      });
+
+      expect(rows()).toEqual([
+        { date: "2026-10-29", type: "vab", hours: 5, note: "Joar", clientId: null },
+        { date: "2026-10-29", type: "work", hours: 3, note: null, clientId },
+      ]);
+      expect(revalidatePath).toHaveBeenCalledWith("/week/2026-W44");
+    });
+
+    it("deletes only the work row when its hours are cleared", async () => {
+      const work = { hours: "3", clientId: String(clientId) };
+      await saveDay({ date: "2026-10-29", type: "vab", hours: "5", note: "Joar", work });
+      await saveDay({
+        date: "2026-10-29",
+        type: "vab",
+        hours: "5",
+        note: "Joar",
+        work: { ...work, hours: "" },
+      });
+
+      expect(rows()).toEqual([
+        { date: "2026-10-29", type: "vab", hours: 5, note: "Joar", clientId: null },
+      ]);
+    });
+
+    it("collapses to a single row when the date gets another type", async () => {
+      await saveDay({
+        date: "2026-10-29",
+        type: "vab",
+        hours: "5",
+        work: { hours: "3", clientId: String(clientId) },
+      });
+      await saveDay({ date: "2026-10-29", type: "sick", hours: "" });
+
+      expect(rows()).toEqual([
+        { date: "2026-10-29", type: "sick", hours: null, note: null, clientId: null },
+      ]);
+    });
+
+    it("rejects a work part on any type but VAB without writing", async () => {
+      await expect(
+        saveDay({
+          date: "2026-10-29",
+          type: "vacation",
+          hours: "",
+          work: { hours: "3", clientId: String(clientId) },
+        }),
+      ).rejects.toThrow("Endast VAB kan kombineras med arbete");
+      expect(rows()).toEqual([]);
+    });
+
+    it("rejects a part-time VAB day in an invoiced month", async () => {
+      insertInvoice(db, {
+        bokioInvoiceId: "inv-1",
+        periodStart: "2026-10-01",
+        periodEnd: "2026-10-31",
+        hours: 160,
+        clientId,
+      });
+
+      await expect(
+        saveDay({
+          date: "2026-10-29",
+          type: "vab",
+          hours: "5",
+          work: { hours: "3", clientId: String(clientId) },
+        }),
+      ).rejects.toThrow("Månaden är fakturerad");
+      expect(rows()).toEqual([]);
+    });
+  });
 });

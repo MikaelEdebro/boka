@@ -144,6 +144,9 @@ export default async function YearPage({
                     <li key={day.date} className="flex gap-4">
                       <span className="tabular-nums">{day.date}</span>
                       <span>{day.note ?? "—"}</span>
+                      <span className="tabular-nums text-muted-foreground">
+                        {day.hours ? `${day.hours} h` : "Heldag"}
+                      </span>
                     </li>
                   ))}
                 </ul>
