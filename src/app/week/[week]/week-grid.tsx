@@ -84,7 +84,7 @@ function toDayInput(date: string, { type, hours, note, clientId, work }: RowStat
   return work ? { ...day, work } : day;
 }
 
-function workErrorKey(date: string): string {
+function workInputKey(date: string): string {
   return `${date}:work`;
 }
 
@@ -142,7 +142,7 @@ export function WeekGrid({
 
   // Hours inputs in render order: each date's own, then its work row's.
   const hourInputKeys = rows.flatMap((row) =>
-    states[row.date].work ? [row.date, workErrorKey(row.date)] : [row.date],
+    states[row.date].work ? [row.date, workInputKey(row.date)] : [row.date],
   );
 
   function focusNextHours(key: string, current: HTMLInputElement) {
@@ -193,7 +193,7 @@ export function WeekGrid({
   function persist(date: string, next: RowState) {
     const errors = {
       [date]: hoursError(next.hours),
-      [workErrorKey(date)]: next.work ? hoursError(next.work.hours) : null,
+      [workInputKey(date)]: next.work ? hoursError(next.work.hours) : null,
     };
     setHoursErrors((prev) => {
       const nextErrors = { ...prev };
@@ -498,7 +498,7 @@ export function WeekGrid({
                     )}
                     <td className="py-2">
                       {renderHoursInput({
-                        inputKey: workErrorKey(row.date),
+                        inputKey: workInputKey(row.date),
                         label: `Timmar arbete ${row.date}`,
                         value: state.work.hours,
                         locked: row.locked,

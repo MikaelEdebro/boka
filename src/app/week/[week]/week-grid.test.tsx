@@ -764,4 +764,3 @@ describe("WeekGrid", () => {
     });
   });
 });
-

@@ -226,4 +226,3 @@ describe("WeekPage", () => {
     expect(total).toHaveTextContent("3");
   });
 });
-

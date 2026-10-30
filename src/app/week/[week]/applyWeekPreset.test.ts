@@ -179,4 +179,3 @@ describe("applyWeekPreset", () => {
     expect(db.select().from(dayEntries).all()).toEqual([]);
   });
 });
-
