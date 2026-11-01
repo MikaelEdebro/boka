@@ -217,7 +217,7 @@ describe("WeekPage", () => {
 
     render(await renderWeek("2026-W44"));
 
-    expect(screen.getByLabelText("Typ 2026-10-29")).toHaveValue("vab");
+    expect(screen.getByLabelText("Typ 2026-10-29")).toHaveValue("vab_part");
     expect(screen.getByLabelText("Timmar 2026-10-29")).toHaveValue("5");
     expect(screen.getByLabelText("Kommentar 2026-10-29")).toHaveValue("Joar");
     expect(screen.getByLabelText("Timmar arbete 2026-10-29")).toHaveValue("3");

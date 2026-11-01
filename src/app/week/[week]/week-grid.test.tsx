@@ -615,7 +615,7 @@ describe("WeekGrid", () => {
 
       fireEvent.change(screen.getByLabelText("Typ 2026-10-20"), { target: { value: "vab_part" } });
 
-      expect(screen.getByLabelText("Typ 2026-10-20")).toHaveValue("vab");
+      expect(screen.getByLabelText("Typ 2026-10-20")).toHaveValue("vab_part");
       expect(screen.getByLabelText("Timmar 2026-10-20")).toHaveValue("");
       expect(screen.getByLabelText("Kommentar 2026-10-20")).toHaveAttribute("list", "vab-notes");
       expect(screen.getByLabelText("Timmar arbete 2026-10-20")).toHaveValue("");
@@ -670,7 +670,7 @@ describe("WeekGrid", () => {
     it("renders a stored part-time VAB day as two rows with the client breakdown", () => {
       const { container } = renderGrid({ clients: twoClients, rows: [rows[0], partTimeRow] });
 
-      expect(screen.getByLabelText("Typ 2026-10-20")).toHaveValue("vab");
+      expect(screen.getByLabelText("Typ 2026-10-20")).toHaveValue("vab_part");
       expect(screen.getByLabelText("Timmar 2026-10-20")).toHaveValue("5");
       expect(screen.getByLabelText("Kommentar 2026-10-20")).toHaveValue("Joar");
       expect(screen.getByLabelText("Timmar arbete 2026-10-20")).toHaveValue("3");
@@ -707,12 +707,50 @@ describe("WeekGrid", () => {
       });
     });
 
-    it.each(["vab", "vab_part"])("stays split when the VAB row is set to %s", (value) => {
+    it("stays split and does not save when VAB deltid is picked again", () => {
       renderGrid({ rows: [partTimeRow] });
 
-      fireEvent.change(screen.getByLabelText("Typ 2026-10-20"), { target: { value } });
+      fireEvent.change(screen.getByLabelText("Typ 2026-10-20"), { target: { value: "vab_part" } });
 
       expect(screen.getByLabelText("Timmar arbete 2026-10-20")).toHaveValue("3");
+      expect(saveDay).not.toHaveBeenCalled();
+    });
+
+    it("collapses to a plain VAB day keeping the VAB hours and note when VAB is picked", () => {
+      renderGrid({ rows: [partTimeRow] });
+
+      fireEvent.change(screen.getByLabelText("Typ 2026-10-20"), { target: { value: "vab" } });
+
+      expect(screen.queryByLabelText("Timmar arbete 2026-10-20")).not.toBeInTheDocument();
+      expect(screen.getByLabelText("Typ 2026-10-20")).toHaveValue("vab");
+      expect(screen.getByLabelText("Timmar 2026-10-20")).toHaveValue("5");
+      expect(screen.getByLabelText("Kommentar 2026-10-20")).toHaveValue("Joar");
+      expect(saveDay).toHaveBeenLastCalledWith({
+        date: "2026-10-20",
+        type: "vab",
+        hours: "5",
+        note: "Joar",
+        clientId: "",
+      });
+    });
+
+    it("removes the Arbete row when its hours are cleared and saved", () => {
+      renderGrid({ rows: [partTimeRow] });
+
+      const workHours = screen.getByLabelText("Timmar arbete 2026-10-20");
+      fireEvent.change(workHours, { target: { value: "" } });
+      fireEvent.blur(workHours);
+
+      expect(screen.queryByLabelText("Timmar arbete 2026-10-20")).not.toBeInTheDocument();
+      expect(screen.getByLabelText("Typ 2026-10-20")).toHaveValue("vab");
+      expect(screen.getByLabelText("Timmar 2026-10-20")).toHaveValue("5");
+      expect(saveDay).toHaveBeenLastCalledWith({
+        date: "2026-10-20",
+        type: "vab",
+        hours: "5",
+        note: "Joar",
+        clientId: "",
+      });
     });
 
     it("shows an invalid work hours value inline without saving", () => {

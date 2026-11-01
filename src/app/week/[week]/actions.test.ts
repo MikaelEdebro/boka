@@ -161,6 +161,16 @@ describe("saveDay", () => {
       ]);
     });
 
+    it("deletes the work row when the date is saved as a plain VAB day", async () => {
+      const work = { hours: "3", clientId: String(clientId) };
+      await saveDay({ date: "2026-10-29", type: "vab", hours: "2", note: "Joar", work });
+      await saveDay({ date: "2026-10-29", type: "vab", hours: "2", note: "Joar" });
+
+      expect(rows()).toEqual([
+        { date: "2026-10-29", type: "vab", hours: 2, note: "Joar", clientId: null },
+      ]);
+    });
+
     it("collapses to a single row when the date gets another type", async () => {
       await saveDay({
         date: "2026-10-29",

@@ -227,9 +227,15 @@ export function WeekGrid({
     if (work) update(date, { work: { ...work, ...patch } });
   }
 
+  // Work with no hours is not stored, so the Arbete row goes away with it.
+  function commitWorkHours(date: string, hours: string) {
+    if (hours.trim() === "") update(date, { work: null });
+    else updateWork(date, { hours });
+  }
+
   // Picking VAB deltid keeps any VAB hours and note, and moves a work day's
-  // hours to the work row. VAB keeps a split date split; any other type
-  // collapses it to one row.
+  // hours to the work row. Any other type, VAB included, collapses a split
+  // date to one row.
   function changeType(date: string, value: string) {
     const state = states[date];
     if (value === VAB_PART_TIME) {
@@ -247,7 +253,6 @@ export function WeekGrid({
       });
       return;
     }
-    if (value === "vab" && state.work) return;
     update(date, { type: value as DayType, work: null });
   }
 
@@ -428,7 +433,7 @@ export function WeekGrid({
                   <td className="py-2">
                     <select
                       aria-label={`Typ ${row.date}`}
-                      value={state.type}
+                      value={state.work ? VAB_PART_TIME : state.type}
                       disabled={row.locked}
                       tabIndex={-1}
                       onChange={(event) => changeType(row.date, event.target.value)}
@@ -503,7 +508,7 @@ export function WeekGrid({
                         value: state.work.hours,
                         locked: row.locked,
                         onEdit: (hours) => editWorkField(row.date, { hours }),
-                        onCommit: (hours) => updateWork(row.date, { hours }),
+                        onCommit: (hours) => commitWorkHours(row.date, hours),
                       })}
                     </td>
                     <td className="py-2">
