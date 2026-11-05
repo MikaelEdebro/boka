@@ -264,3 +264,23 @@ describe("0009 day_entries keyed by (date, type)", () => {
     db.close();
   });
 });
+
+describe("0010 day_entries reported", () => {
+  it("adds reported as false for existing rows", () => {
+    const db = new Database(":memory:");
+    for (const prefix of ["0000", "0001", "0002", "0003", "0004", "0005", "0006", "0007", "0008", "0009"]) {
+      db.exec(migrationSql(prefix));
+    }
+    db.prepare(
+      `INSERT INTO day_entries (date, type, hours, note, updated_at)
+       VALUES ('2026-10-29', 'vab', NULL, 'Joar', 't')`,
+    ).run();
+
+    db.exec(migrationSql("0010"));
+
+    expect(db.prepare(`SELECT date, type, reported FROM day_entries`).all()).toEqual([
+      { date: "2026-10-29", type: "vab", reported: 0 },
+    ]);
+    db.close();
+  });
+});

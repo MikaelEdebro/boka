@@ -1,3 +1,4 @@
+import { and, eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { upsertClient } from "@/db/clients";
 import {
@@ -5,14 +6,23 @@ import {
   getVabNotes,
   getYearEntries,
   replaceDayEntries,
+  setVabReported,
   upsertDayEntry,
 } from "@/db/dayEntries";
-import { dayEntries } from "@/db/schema";
+import { dayEntries, type DayType } from "@/db/schema";
 import { testDb } from "@/test/db";
 
 type TestDb = ReturnType<typeof testDb>;
 
 const CLIENT = { name: "Acme", hourlyRate: 1000, bokioCustomerId: "c1", invoiceItemName: "Programmering" };
+
+function reportedOf(db: TestDb, date: string, type: DayType = "vab"): boolean | undefined {
+  return db
+    .select({ reported: dayEntries.reported })
+    .from(dayEntries)
+    .where(and(eq(dayEntries.date, date), eq(dayEntries.type, type)))
+    .get()?.reported;
+}
 
 function rowsOf(db: TestDb) {
   return db
@@ -45,6 +55,7 @@ describe("dayEntries db", () => {
         hours: 8,
         note: null,
         clientId: null,
+        reported: false,
         updatedAt: "2026-10-19T08:00:00.000Z",
       },
     ]);
@@ -118,6 +129,57 @@ describe("replaceDayEntries", () => {
     replaceDayEntries(db, "2026-10-29", []);
     expect(rowsOf(db)).toEqual([]);
   });
+
+  it("keeps the reported flag of a kept vab row", () => {
+    const db = testDb();
+    upsertDayEntry(db, { date: "2026-10-29", type: "vab", hours: null, note: "Joar", clientId: null }, "t");
+    setVabReported(db, "2026-10-29", true);
+
+    replaceDayEntries(db, "2026-10-29", [
+      { date: "2026-10-29", type: "vab", hours: 5, note: "Stina", clientId: null },
+      { date: "2026-10-29", type: "work", hours: 3, note: null, clientId: null },
+    ]);
+
+    expect(reportedOf(db, "2026-10-29")).toBe(true);
+  });
+
+  it("drops the reported flag when the vab row is replaced by another type", () => {
+    const db = testDb();
+    upsertDayEntry(db, { date: "2026-10-29", type: "vab", hours: null, note: null, clientId: null }, "t");
+    setVabReported(db, "2026-10-29", true);
+
+    replaceDayEntries(db, "2026-10-29", [
+      { date: "2026-10-29", type: "sick", hours: null, note: null, clientId: null },
+    ]);
+    replaceDayEntries(db, "2026-10-29", [
+      { date: "2026-10-29", type: "vab", hours: null, note: null, clientId: null },
+    ]);
+
+    expect(reportedOf(db, "2026-10-29")).toBe(false);
+  });
+});
+
+describe("setVabReported", () => {
+  it("sets and clears the flag on the vab row only", () => {
+    const db = testDb();
+    upsertDayEntry(db, { date: "2026-10-29", type: "vab", hours: 5, note: null, clientId: null }, "t");
+    upsertDayEntry(db, { date: "2026-10-29", type: "work", hours: 3, note: null, clientId: null }, "t");
+
+    setVabReported(db, "2026-10-29", true);
+    expect(reportedOf(db, "2026-10-29")).toBe(true);
+    expect(reportedOf(db, "2026-10-29", "work")).toBe(false);
+
+    setVabReported(db, "2026-10-29", false);
+    expect(reportedOf(db, "2026-10-29")).toBe(false);
+  });
+
+  it("reports whether a vab row was found", () => {
+    const db = testDb();
+    upsertDayEntry(db, { date: "2026-10-28", type: "work", hours: 8, note: null, clientId: null }, "t");
+
+    expect(setVabReported(db, "2026-10-28", true)).toBe(false);
+    expect(reportedOf(db, "2026-10-28", "work")).toBe(false);
+  });
 });
 
 describe("getYearEntries", () => {
@@ -127,12 +189,15 @@ describe("getYearEntries", () => {
     upsertDayEntry(db, { date: "2026-03-10", type: "vacation", hours: null, note: null, clientId: null }, "t");
     upsertDayEntry(db, { date: "2026-01-02", type: "work", hours: 6, note: null, clientId: null }, "t");
     upsertDayEntry(db, { date: "2027-01-01", type: "sick", hours: null, note: null, clientId: null }, "t");
+    upsertDayEntry(db, { date: "2026-04-01", type: "vab", hours: null, note: null, clientId: null }, "t");
+    setVabReported(db, "2026-04-01", true);
 
     const entries = getYearEntries(db, 2026);
 
     expect(entries).toEqual([
-      { date: "2026-01-02", type: "work", hours: 6, note: null },
-      { date: "2026-03-10", type: "vacation", hours: null, note: null },
+      { date: "2026-01-02", type: "work", hours: 6, note: null, reported: false },
+      { date: "2026-03-10", type: "vacation", hours: null, note: null, reported: false },
+      { date: "2026-04-01", type: "vab", hours: null, note: null, reported: true },
     ]);
   });
 });

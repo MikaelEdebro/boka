@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { invoicedMonths, summarizeYear, vabDaysByMonth, type SummaryEntry } from "@/lib/summary";
+import {
+  invoicedMonths,
+  summarizeYear,
+  vabDaysByMonth,
+  vabTotalLabel,
+  type SummaryEntry,
+} from "@/lib/summary";
 
 describe("summarizeYear", () => {
   it("counts a part-time VAB day as one VAB day and its work hours as work", () => {
@@ -83,29 +89,48 @@ describe("vabDaysByMonth", () => {
     ];
 
     expect(vabDaysByMonth(2026, entries)).toEqual([
-      { month: 10, days: [{ date: "2026-10-29", note: "Joar", hours: 5 }] },
+      { month: 10, days: [{ date: "2026-10-29", note: "Joar", hours: 5, reported: false }] },
     ]);
   });
 
   it("groups the year's vab days by month, each month and its days sorted", () => {
     const entries: SummaryEntry[] = [
       { date: "2026-03-11", type: "vab", hours: null, note: null },
-      { date: "2026-01-05", type: "vab", hours: null, note: "Stina" },
+      { date: "2026-01-05", type: "vab", hours: null, note: "Stina", reported: true },
       { date: "2026-03-10", type: "vab", hours: null, note: "Otto" },
       { date: "2026-02-02", type: "work", hours: 8, note: null },
       { date: "2025-12-24", type: "vab", hours: null, note: "Förra året" },
     ];
 
     expect(vabDaysByMonth(2026, entries)).toEqual([
-      { month: 1, days: [{ date: "2026-01-05", note: "Stina", hours: null }] },
+      { month: 1, days: [{ date: "2026-01-05", note: "Stina", hours: null, reported: true }] },
       {
         month: 3,
         days: [
-          { date: "2026-03-10", note: "Otto", hours: null },
-          { date: "2026-03-11", note: null, hours: null },
+          { date: "2026-03-10", note: "Otto", hours: null, reported: false },
+          { date: "2026-03-11", note: null, hours: null, reported: false },
         ],
       },
     ]);
+  });
+});
+
+describe("vabTotalLabel", () => {
+  const day = (date: string, reported: boolean) => ({ date, note: null, hours: null, reported });
+
+  it("counts all VAB days and the reported ones", () => {
+    expect(
+      vabTotalLabel([
+        { month: 1, days: [day("2026-01-05", true), day("2026-01-06", false)] },
+        { month: 3, days: [day("2026-03-10", true)] },
+      ]),
+    ).toBe("3 dagar · 2 rapporterade");
+  });
+
+  it("uses the singular for a single day", () => {
+    expect(vabTotalLabel([{ month: 1, days: [day("2026-01-05", false)] }])).toBe(
+      "1 dag · 0 rapporterade",
+    );
   });
 });
 

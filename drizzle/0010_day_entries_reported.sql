@@ -1,0 +1,1 @@
+ALTER TABLE `day_entries` ADD `reported` integer DEFAULT false NOT NULL;

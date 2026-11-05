@@ -53,7 +53,22 @@ export function replaceDayEntries(
   replace();
 }
 
-export type YearEntry = { date: string; type: DayType; hours: number | null; note: string | null };
+export function setVabReported(db: Db, date: string, reported: boolean): boolean {
+  const result = db
+    .update(dayEntries)
+    .set({ reported })
+    .where(and(eq(dayEntries.date, date), eq(dayEntries.type, "vab")))
+    .run();
+  return result.changes > 0;
+}
+
+export type YearEntry = {
+  date: string;
+  type: DayType;
+  hours: number | null;
+  note: string | null;
+  reported: boolean;
+};
 
 export function getYearEntries(db: Db, year: number): YearEntry[] {
   return db
@@ -62,6 +77,7 @@ export function getYearEntries(db: Db, year: number): YearEntry[] {
       type: dayEntries.type,
       hours: dayEntries.hours,
       note: dayEntries.note,
+      reported: dayEntries.reported,
     })
     .from(dayEntries)
     .where(and(gte(dayEntries.date, `${year}-01-01`), lte(dayEntries.date, `${year}-12-31`)))

@@ -5,6 +5,7 @@ export type SummaryEntry = {
   type: DayType;
   hours: number | null;
   note?: string | null;
+  reported?: boolean;
 };
 
 export type MonthSummary = {
@@ -68,7 +69,7 @@ export function summarizeYear(year: number, entries: SummaryEntry[]): YearSummar
   return { year, months, totals };
 }
 
-export type VabDay = { date: string; note: string | null; hours: number | null };
+export type VabDay = { date: string; note: string | null; hours: number | null; reported: boolean };
 export type VabMonth = { month: number; days: VabDay[] };
 
 export function vabDaysByMonth(year: number, entries: SummaryEntry[]): VabMonth[] {
@@ -79,7 +80,12 @@ export function vabDaysByMonth(year: number, entries: SummaryEntry[]): VabMonth[
     if (entry.date.slice(0, 4) !== String(year)) continue;
     const month = Number(entry.date.slice(5, 7));
     const days = byMonth.get(month) ?? [];
-    days.push({ date: entry.date, note: entry.note ?? null, hours: entry.hours });
+    days.push({
+      date: entry.date,
+      note: entry.note ?? null,
+      hours: entry.hours,
+      reported: entry.reported ?? false,
+    });
     byMonth.set(month, days);
   }
 
@@ -89,6 +95,12 @@ export function vabDaysByMonth(year: number, entries: SummaryEntry[]): VabMonth[
       month,
       days: [...days].sort((a, b) => a.date.localeCompare(b.date)),
     }));
+}
+
+export function vabTotalLabel(months: VabMonth[]): string {
+  const days = months.flatMap((month) => month.days);
+  const reported = days.filter((day) => day.reported).length;
+  return `${days.length} ${days.length === 1 ? "dag" : "dagar"} · ${reported} rapporterade`;
 }
 
 export type InvoicePeriod = { periodStart: string; hours: number; clientName: string };

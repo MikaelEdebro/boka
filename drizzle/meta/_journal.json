@@ -71,6 +71,13 @@
       "when": 1793364030378,
       "tag": "0009_day_entries_date_type_key",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1793862083147,
+      "tag": "0010_day_entries_reported",
+      "breakpoints": true
     }
   ]
 }

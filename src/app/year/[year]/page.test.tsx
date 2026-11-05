@@ -2,7 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getDb } from "@/db/client";
 import { upsertClient } from "@/db/clients";
-import { upsertDayEntry } from "@/db/dayEntries";
+import { setVabReported, upsertDayEntry } from "@/db/dayEntries";
 import { insertInvoice } from "@/db/invoices";
 import { clients, dayEntries, invoices } from "@/db/schema";
 import YearPage from "./page";
@@ -56,7 +56,7 @@ describe("YearPage", () => {
     expect(within(januari).getByText("1")).toBeInTheDocument();
   });
 
-  it("lists every VAB day of the year with date and note, grouped by month", async () => {
+  it("lists every VAB day of the year in a table, grouped under month header rows", async () => {
     const db = getDb();
     upsertDayEntry(db, { date: "2026-01-05", type: "vab", hours: null, note: "Stina", clientId: null }, "t");
     upsertDayEntry(db, { date: "2026-03-10", type: "vab", hours: null, note: "Otto", clientId: null }, "t");
@@ -64,15 +64,23 @@ describe("YearPage", () => {
 
     render(await YearPage({ params: Promise.resolve({ year: "2026" }) }));
 
-    const vab = screen.getByRole("heading", { name: "VAB-dagar" });
-    expect(vab).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "VAB-dagar" })).toBeInTheDocument();
+    const table = screen.getByRole("table", { name: "VAB-dagar" });
+    for (const header of ["Datum", "Anteckning", "Omfattning", "Rapporterad"]) {
+      expect(within(table).getByRole("columnheader", { name: header })).toBeInTheDocument();
+    }
 
-    const list = screen.getByRole("list", { name: "VAB-dagar" });
-    expect(within(list).getByText(/2026-01-05/)).toBeInTheDocument();
-    expect(within(list).getByText(/Stina/)).toBeInTheDocument();
-    expect(within(list).getByText(/2026-03-10/)).toBeInTheDocument();
-    expect(within(list).getByText(/Otto/)).toBeInTheDocument();
-    expect(within(list).getByText(/2026-03-11/)).toBeInTheDocument();
+    const rows = within(table).getAllByRole("row").map((row) => row.textContent);
+    expect(rows).toEqual([
+      "DatumAnteckningOmfattningRapporterad",
+      "Januari",
+      "2026-01-05StinaHeldag",
+      "Mars",
+      "2026-03-10OttoHeldag",
+      "2026-03-11—Heldag",
+      "Totalt3 dagar · 0 rapporterade",
+    ]);
+    expect(within(table).getByRole("columnheader", { name: "Mars" })).toHaveAttribute("colspan", "4");
   });
 
   it("shows a part-time VAB day's hours and Heldag for a full-day VAB, counting one VAB day each", async () => {
@@ -84,16 +92,41 @@ describe("YearPage", () => {
 
     render(await YearPage({ params: Promise.resolve({ year: "2026" }) }));
 
-    const list = screen.getByRole("list", { name: "VAB-dagar" });
-    const partTime = within(list).getByText("2026-10-29").closest("li")!;
-    expect(partTime).toHaveTextContent(/2026-10-29\s*Joar\s*5 h/);
-    const fullDay = within(list).getByText("2026-10-28").closest("li")!;
-    expect(fullDay).toHaveTextContent(/2026-10-28\s*Stina\s*Heldag/);
+    const table = screen.getByRole("table", { name: "VAB-dagar" });
+    expect(within(table).getByRole("row", { name: /2026-10-29/ })).toHaveTextContent(
+      "2026-10-29Joar5 h",
+    );
+    expect(within(table).getByRole("row", { name: /2026-10-28/ })).toHaveTextContent(
+      "2026-10-28StinaHeldag",
+    );
 
-    const oktober = screen.getByRole("row", { name: /Oktober/ });
+    const [summaryTable] = screen.getAllByRole("table");
+    const oktober = within(summaryTable).getByRole("row", { name: /Oktober/ });
     const cells = within(oktober).getAllByRole("cell");
     expect(cells[1]).toHaveTextContent("3");
     expect(cells[5]).toHaveTextContent("2");
+  });
+
+  it("shows a checked Rapporterad box for a reported VAB day and counts reported days", async () => {
+    const db = getDb();
+    upsertDayEntry(db, { date: "2026-11-02", type: "vab", hours: null, note: null, clientId: null }, "t");
+    upsertDayEntry(db, { date: "2026-11-03", type: "vab", hours: 3, note: null, clientId: null }, "t");
+    setVabReported(db, "2026-11-02", true);
+
+    render(await YearPage({ params: Promise.resolve({ year: "2026" }) }));
+
+    expect(screen.getByRole("checkbox", { name: "Rapporterad 2026-11-02" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Rapporterad 2026-11-03" })).not.toBeChecked();
+    const table = screen.getByRole("table", { name: "VAB-dagar" });
+    expect(within(table).getByRole("row", { name: /Totalt/ })).toHaveTextContent(
+      "2 dagar · 1 rapporterade",
+    );
+  });
+
+  it("hides the VAB table when the year has no VAB days", async () => {
+    render(await YearPage({ params: Promise.resolve({ year: "2026" }) }));
+
+    expect(screen.queryByRole("table", { name: "VAB-dagar" })).not.toBeInTheDocument();
   });
 
   it("marks invoiced months with a check and the client and hours as a title", async () => {

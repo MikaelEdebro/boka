@@ -14,6 +14,7 @@ export const dayEntries = sqliteTable(
     hours: real("hours"),
     note: text("note"),
     clientId: integer("client_id").references(() => clients.id),
+    reported: integer("reported", { mode: "boolean" }).notNull().default(false),
     updatedAt: text("updated_at").notNull(),
   },
   (table) => [primaryKey({ columns: [table.date, table.type] })],

@@ -1,5 +1,6 @@
 import { Check } from "lucide-react";
 import Link from "next/link";
+import { Fragment } from "react";
 import { notFound } from "next/navigation";
 import { buttonVariants } from "@/components/ui/button";
 import { getDb } from "@/db/client";
@@ -7,9 +8,10 @@ import { listClients } from "@/db/clients";
 import { getYearEntries } from "@/db/dayEntries";
 import { listInvoices } from "@/db/invoices";
 import { DAY_TYPE_LABELS, MONTH_LABELS } from "@/lib/labels";
-import { invoicedMonths, summarizeYear, vabDaysByMonth } from "@/lib/summary";
+import { invoicedMonths, summarizeYear, vabDaysByMonth, vabTotalLabel } from "@/lib/summary";
 import { cn } from "@/lib/utils";
 import { currentWeek } from "@/lib/week";
+import { VabReportedCheckbox } from "./vab-reported-checkbox";
 
 const YEAR_RE = /^\d{4}$/;
 
@@ -132,27 +134,53 @@ export default async function YearPage({
 
       {vabMonths.length > 0 && (
         <section className="mt-10">
-          <h2 className="mb-4 text-lg font-semibold">VAB-dagar</h2>
-          <ul aria-label="VAB-dagar" className="space-y-4 text-sm">
-            {vabMonths.map((month) => (
-              <li key={month.month}>
-                <h3 className="mb-1 font-medium text-muted-foreground">
-                  {MONTH_LABELS[month.month - 1]}
-                </h3>
-                <ul className="space-y-1">
+          <h2 id="vab-days-heading" className="mb-4 text-lg font-semibold">
+            VAB-dagar
+          </h2>
+          <table aria-labelledby="vab-days-heading" className="w-full border-collapse text-sm">
+            <thead>
+              <tr className="border-b border-border text-left text-muted-foreground">
+                <th className="py-2 pr-4 font-medium">Datum</th>
+                <th className="py-2 pr-4 font-medium">Anteckning</th>
+                <th className="py-2 pr-4 font-medium">Omfattning</th>
+                <th className="py-2 pr-4 font-medium">Rapporterad</th>
+              </tr>
+            </thead>
+            <tbody>
+              {vabMonths.map((month) => (
+                <Fragment key={month.month}>
+                  <tr className="border-b border-border">
+                    <th
+                      colSpan={4}
+                      className="pt-4 pb-2 pr-4 text-left font-medium text-muted-foreground"
+                    >
+                      {MONTH_LABELS[month.month - 1]}
+                    </th>
+                  </tr>
                   {month.days.map((day) => (
-                    <li key={day.date} className="flex gap-4">
-                      <span className="tabular-nums">{day.date}</span>
-                      <span>{day.note ?? "—"}</span>
-                      <span className="tabular-nums text-muted-foreground">
+                    <tr key={day.date} className="border-b border-border">
+                      <td className="py-2 pr-4 tabular-nums">{day.date}</td>
+                      <td className="py-2 pr-4">{day.note ?? "—"}</td>
+                      <td className="py-2 pr-4 tabular-nums">
                         {day.hours ? `${day.hours} h` : "Heldag"}
-                      </span>
-                    </li>
+                      </td>
+                      <td className="py-2 pr-4">
+                        <VabReportedCheckbox date={day.date} reported={day.reported} />
+                      </td>
+                    </tr>
                   ))}
-                </ul>
-              </li>
-            ))}
-          </ul>
+                </Fragment>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="border-t-2 border-border font-semibold">
+                <td className="py-2 pr-4">Totalt</td>
+                <td colSpan={3} className="py-2 pr-4 tabular-nums">
+                  {vabTotalLabel(vabMonths)}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
         </section>
       )}
     </>

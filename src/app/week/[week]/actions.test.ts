@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { dayEntries } from "@/db/schema";
 import { upsertClient } from "@/db/clients";
+import { getYearEntries, setVabReported } from "@/db/dayEntries";
 import { deleteInvoice, insertInvoice } from "@/db/invoices";
 import { testDb } from "@/test/db";
 import type { Db } from "@/db/client";
@@ -169,6 +170,21 @@ describe("saveDay", () => {
       expect(rows()).toEqual([
         { date: "2026-10-29", type: "vab", hours: 2, note: "Joar", clientId: null },
       ]);
+    });
+
+    it("keeps the VAB day's reported flag when it is re-saved as VAB deltid", async () => {
+      await saveDay({ date: "2026-10-29", type: "vab", hours: "", note: "Joar" });
+      setVabReported(db, "2026-10-29", true);
+
+      await saveDay({
+        date: "2026-10-29",
+        type: "vab",
+        hours: "5",
+        note: "Joar",
+        work: { hours: "3", clientId: String(clientId) },
+      });
+
+      expect(getYearEntries(db, 2026).find((entry) => entry.type === "vab")?.reported).toBe(true);
     });
 
     it("collapses to a single row when the date gets another type", async () => {

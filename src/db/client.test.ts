@@ -16,6 +16,7 @@ describe("db", () => {
         hours: 8,
         note: null,
         clientId: null,
+        reported: false,
         updatedAt: "2026-10-19T08:00:00Z",
       },
     ]);

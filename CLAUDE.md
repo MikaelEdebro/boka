@@ -24,6 +24,7 @@ Weekly time reporting for a one-person Swedish company. Single user, runs locall
 - `day_entries` is keyed by `(date, type)`. A date holds one row, except part-time VAB ("VAB deltid" in the week grid): a `vab` row plus a `work` row. No other type may share a date (`parseDay` in `src/lib/dayEntry.ts`). `saveDay` replaces all rows of a date (`replaceDayEntries`).
 - A weekday (Mon–Fri) is "reported" when it has a `day_entries` row of any type or is a Swedish red day. Weekends are never required. A month can only be invoiced when all its weekdays are reported (`missingDays` in `src/lib/invoicing.ts`).
 - The week grid shows Mon–Fri. Saturday/Sunday rows appear when any client has `showWeekends` ("Visa helger") on, or when that date already has an entry (`visibleWeekDates` in `src/lib/week.ts`). Presets only touch the rendered dates and never touch weekends when they are shown.
+- A `vab` row has a `reported` flag ("Rapporterad", reported to Försäkringskassan), toggled on the year page. Re-saving the day keeps it while the `vab` row stays, and toggling ignores invoice locks.
 - A month is "locked" when an `invoices` row exists for it (created or linked): its days are read-only in the week grid. Removing the invoice unlocks it.
 - Secrets (`BOKIO_TOKEN`, `BOKIO_COMPANY_ID`) come from `.env`, never the DB. See `.env.example`.
 
