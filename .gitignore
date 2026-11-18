@@ -42,8 +42,6 @@ next-env.d.ts
 
 # boka
 /data/
-.sandcastle/logs/
-.sandcastle/worktrees/
 !.env.example
 
 # node
