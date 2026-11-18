@@ -12,8 +12,6 @@ Runs locally on your own machine. Single user, no login.
 - Settings: hourly rate and Bokio customer
 - Invoices: create a Bokio draft invoice from a month of submitted hours
 
-Features are built from GitHub issues by [Sandcastle](https://github.com/mattpocock/sandcastle); see the issue list for what is done.
-
 ## Stack
 
 Next.js (App Router), React, TypeScript, Tailwind + shadcn/ui, SQLite via better-sqlite3 + Drizzle ORM, Vitest.
@@ -42,7 +40,6 @@ Open http://localhost:3000. The SQLite database is created automatically at `./d
 | `npm run db:generate` | Generate a migration after editing `src/db/schema.ts` |
 | `npm run db:migrate` | Apply migrations to the file DB (also happens automatically on app start) |
 | `npm run db:studio` | Browse the database with Drizzle Studio |
-| `npm run sandcastle` | Run the Sandcastle agent loop over open issues |
 
 ## Bokio
 
@@ -57,13 +54,6 @@ src/db/           Drizzle schema, client, queries
 src/lib/          pure domain logic (weeks, holidays, summaries)
 src/bokio/        Bokio API client
 drizzle/          generated SQL migrations
-.sandcastle/      agent prompts and orchestration
 ```
 
 Conventions for contributors and agents are in `CLAUDE.md`.
-
-## Sandcastle
-
-Issues labelled `Sandcastle` are picked up by `npm run sandcastle`. It needs `.sandcastle/.env` with `CLAUDE_CODE_OAUTH_TOKEN` (from `claude setup-token`) and a `GH_TOKEN` with Issues read/write on this repo, plus the Docker image from `npx sandcastle docker build-image`. The merge step commits to local `main` but does not push.
-
-To keep it running, `npm run sandcastle:loop` polls every minute and starts a run whenever open `Sandcastle` issues exist (`SANDCASTLE_POLL_SECONDS` to change the interval). It wraps the loop in `caffeinate` so the Mac stays awake.
