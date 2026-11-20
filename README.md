@@ -18,12 +18,12 @@ Next.js (App Router), React, TypeScript, Tailwind + shadcn/ui, SQLite via better
 
 ## Run locally
 
-Requires Node 22+.
+Requires Node 22+ and pnpm (`corepack enable` picks up the pinned version).
 
 ```sh
-npm install
+pnpm install
 cp .env.example .env   # fill in Bokio values if you want invoicing
-npm run dev
+pnpm dev
 ```
 
 Open http://localhost:3000. The SQLite database is created automatically at `./data/boka.db` on first start (override with `DATABASE_PATH` in `.env`).
@@ -32,14 +32,14 @@ Open http://localhost:3000. The SQLite database is created automatically at `./d
 
 | Command | What it does |
 |---|---|
-| `npm run dev` | Start dev server |
-| `npm run build` / `npm start` | Production build and serve |
-| `npm run typecheck` | TypeScript check |
-| `npm run test` | Run Vitest once (`npm run test:watch` for watch mode) |
-| `npm run lint` | ESLint |
-| `npm run db:generate` | Generate a migration after editing `src/db/schema.ts` |
-| `npm run db:migrate` | Apply migrations to the file DB (also happens automatically on app start) |
-| `npm run db:studio` | Browse the database with Drizzle Studio |
+| `pnpm dev` | Start dev server |
+| `pnpm build` / `pnpm start` | Production build and serve |
+| `pnpm typecheck` | TypeScript check |
+| `pnpm test` | Run Vitest once (`pnpm test:watch` for watch mode) |
+| `pnpm lint` | ESLint |
+| `pnpm db:generate` | Generate a migration after editing `src/db/schema.ts` |
+| `pnpm db:migrate` | Apply migrations to the file DB (also happens automatically on app start) |
+| `pnpm db:studio` | Browse the database with Drizzle Studio |
 
 ## Bokio
 

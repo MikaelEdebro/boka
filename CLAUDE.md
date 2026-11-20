@@ -5,16 +5,16 @@ Weekly time reporting for a one-person Swedish company. Single user, runs locall
 ## Stack
 
 - Next.js 16 App Router, React 19, TypeScript strict. Server actions for mutations, no separate API layer.
-- SQLite via `better-sqlite3` + Drizzle ORM. Schema in `src/db/schema.ts`, migrations in `drizzle/` (generate with `npm run db:generate`, never hand-edit SQL). `getDb()` in `src/db/client.ts` runs migrations on open.
-- Tailwind v4 + shadcn/ui (`src/components/ui`, add more with `npx shadcn@latest add <name>`).
+- SQLite via `better-sqlite3` + Drizzle ORM. Schema in `src/db/schema.ts`, migrations in `drizzle/` (generate with `pnpm db:generate`, never hand-edit SQL). `getDb()` in `src/db/client.ts` runs migrations on open.
+- Tailwind v4 + shadcn/ui (`src/components/ui`, add more with `pnpm dlx shadcn@latest add <name>`).
 - `date-fns` for dates, `swedish-holidays` for red days, Zod for validation.
 - Vitest + Testing Library. `*.test.ts` run in node, `*.test.tsx` in jsdom. Use `testDb()` from `src/test/db.ts` for an in-memory DB.
 
 ## Commands
 
-- `npm run dev` / `npm run build`
-- `npm run typecheck` and `npm run test` must pass before every commit.
-- `npm run lint`
+- `pnpm dev` / `pnpm build`
+- `pnpm typecheck` and `pnpm test` must pass before every commit.
+- `pnpm lint`
 
 ## Domain
 
