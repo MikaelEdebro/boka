@@ -66,13 +66,13 @@ describe("YearPage", () => {
 
     expect(screen.getByRole("heading", { name: "VAB-dagar" })).toBeInTheDocument();
     const table = screen.getByRole("table", { name: "VAB-dagar" });
-    for (const header of ["Datum", "Anteckning", "Omfattning", "Rapporterad"]) {
+    for (const header of ["Datum", "Anteckning", "Omfattning", "Rapporterad till FK"]) {
       expect(within(table).getByRole("columnheader", { name: header })).toBeInTheDocument();
     }
 
     const rows = within(table).getAllByRole("row").map((row) => row.textContent);
     expect(rows).toEqual([
-      "DatumAnteckningOmfattningRapporterad",
+      "DatumAnteckningOmfattningRapporterad till FK",
       "Januari",
       "2026-01-05StinaHeldag",
       "Mars",

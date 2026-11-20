@@ -143,7 +143,7 @@ export default async function YearPage({
                 <th className="py-2 pr-4 font-medium">Datum</th>
                 <th className="py-2 pr-4 font-medium">Anteckning</th>
                 <th className="py-2 pr-4 font-medium">Omfattning</th>
-                <th className="py-2 pr-4 font-medium">Rapporterad</th>
+                <th className="py-2 pr-4 font-medium">Rapporterad till FK</th>
               </tr>
             </thead>
             <tbody>
